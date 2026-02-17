@@ -9,10 +9,11 @@ admin.initializeApp()
 const SCOPES = ['https://www.googleapis.com/auth/drive.file']
 const SERVICE_ACCOUNT_PATH = path.join(__dirname, '..', 'service-account.json')
 
-// 위원회별 Google Drive 폴더 ID
+// Google Drive 폴더 ID
 const FOLDER_IDS: Record<string, string> = {
   operations: process.env.GDRIVE_FOLDER_OPERATIONS || '',
   preparation: process.env.GDRIVE_FOLDER_PREPARATION || '',
+  bankbook: process.env.GDRIVE_FOLDER_BANKBOOK || '',
 }
 
 function getDriveService() {
@@ -28,12 +29,43 @@ interface FileInput {
   data: string
 }
 
-interface ReceiptOutput {
+interface UploadResult {
   fileName: string
   driveFileId: string
   driveUrl: string
 }
 
+async function uploadFileToDrive(drive: ReturnType<typeof getDriveService>, file: FileInput, folderId: string): Promise<UploadResult> {
+  const base64Data = file.data.split(',')[1]
+  const buffer = Buffer.from(base64Data, 'base64')
+  const mimeType = file.data.split(';')[0].split(':')[1]
+
+  const stream = new Readable()
+  stream.push(buffer)
+  stream.push(null)
+
+  const response = await (await drive).files.create({
+    requestBody: {
+      name: `${Date.now()}_${file.name}`,
+      parents: [folderId],
+    },
+    media: { mimeType, body: stream },
+    fields: 'id, webViewLink',
+  })
+
+  await (await drive).permissions.create({
+    fileId: response.data.id!,
+    requestBody: { role: 'reader', type: 'anyone' },
+  })
+
+  return {
+    fileName: file.name,
+    driveFileId: response.data.id!,
+    driveUrl: response.data.webViewLink!,
+  }
+}
+
+// 영수증 업로드
 export const uploadReceipts = functions.https.onCall(
   async (request: functions.https.CallableRequest<{ files: FileInput[]; committee: string }>) => {
     if (!request.auth) {
@@ -51,44 +83,32 @@ export const uploadReceipts = functions.https.onCall(
     }
 
     const drive = getDriveService()
-    const results: ReceiptOutput[] = []
-
+    const results: UploadResult[] = []
     for (const file of files) {
-      const base64Data = file.data.split(',')[1]
-      const buffer = Buffer.from(base64Data, 'base64')
-      const mimeType = file.data.split(';')[0].split(':')[1]
+      results.push(await uploadFileToDrive(drive, file, folderId))
+    }
+    return results
+  }
+)
 
-      const stream = new Readable()
-      stream.push(buffer)
-      stream.push(null)
-
-      const response = await drive.files.create({
-        requestBody: {
-          name: `${Date.now()}_${file.name}`,
-          parents: [folderId],
-        },
-        media: {
-          mimeType,
-          body: stream,
-        },
-        fields: 'id, webViewLink',
-      })
-
-      await drive.permissions.create({
-        fileId: response.data.id!,
-        requestBody: {
-          role: 'reader',
-          type: 'anyone',
-        },
-      })
-
-      results.push({
-        fileName: file.name,
-        driveFileId: response.data.id!,
-        driveUrl: response.data.webViewLink!,
-      })
+// 통장사본 업로드
+export const uploadBankBook = functions.https.onCall(
+  async (request: functions.https.CallableRequest<{ file: FileInput }>) => {
+    if (!request.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'Must be logged in')
     }
 
-    return results
+    const { file } = request.data
+    if (!file) {
+      throw new functions.https.HttpsError('invalid-argument', 'No file provided')
+    }
+
+    const folderId = FOLDER_IDS.bankbook || ''
+    if (!folderId) {
+      throw new functions.https.HttpsError('failed-precondition', 'Bankbook folder not configured')
+    }
+
+    const drive = getDriveService()
+    return await uploadFileToDrive(drive, file, folderId)
   }
 )

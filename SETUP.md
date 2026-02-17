@@ -67,6 +67,12 @@ service cloud.firestore {
       allow write: if request.auth != null
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'approver'];
     }
+    match /settlements/{docId} {
+      allow read: if request.auth != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'approver'];
+      allow write: if request.auth != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'approver'];
+    }
   }
 }
 ```
@@ -81,7 +87,7 @@ service cloud.firestore {
 - Collection: `requests`
 - Fields: `requestedBy.uid` (Ascending), `createdAt` (Descending)
 
-## 5. Google Drive API (영수증 업로드)
+## 5. Google Drive API (영수증/통장사본 업로드)
 
 ### 5-1. API 활성화
 
@@ -104,15 +110,21 @@ mv ~/Downloads/your-project-xxxxxxxx.json functions/service-account.json
 
 ### 5-3. Google Drive 폴더 생성
 
-1. Google Drive에서 두 개 폴더 생성:
-   - `영수증-운영위원회`
-   - `영수증-준비위원회`
-2. 각 폴더를 **우클릭 > 공유** > 서비스 계정 이메일 추가:
+Google Drive에서 세 개 폴더를 생성합니다:
+
+| 폴더 이름 | 용도 |
+|-----------|------|
+| `영수증-운영위원회` | 운영 위원회 영수증 |
+| `영수증-준비위원회` | 준비 위원회 영수증 |
+| `통장사본` | 사용자 통장사본 |
+
+각 폴더에 대해:
+1. **우클릭 > 공유** > 서비스 계정 이메일 추가:
    ```
    drive-uploader@your-project.iam.gserviceaccount.com
    ```
    권한: **편집자**
-3. 각 폴더의 ID 복사 (URL에서 `folders/` 뒤의 문자열)
+2. 폴더 ID 복사 (URL에서 `folders/` 뒤의 문자열)
 
 ### 5-4. Cloud Functions 환경 변수 설정
 
@@ -121,6 +133,7 @@ mv ~/Downloads/your-project-xxxxxxxx.json functions/service-account.json
 ```
 GDRIVE_FOLDER_OPERATIONS=운영위원회_폴더ID
 GDRIVE_FOLDER_PREPARATION=준비위원회_폴더ID
+GDRIVE_FOLDER_BANKBOOK=통장사본_폴더ID
 ```
 
 ## 6. 로컬 개발
@@ -188,17 +201,20 @@ finanace/
 │   ├── contexts/         # React Context (인증)
 │   ├── lib/              # Firebase 설정
 │   ├── pages/            # 페이지 컴포넌트
-│   │   ├── LoginPage.tsx          # 로그인
-│   │   ├── RequestFormPage.tsx    # 신청서 작성
-│   │   ├── MyRequestsPage.tsx     # 내 신청 내역
-│   │   ├── RequestDetailPage.tsx  # 신청서 상세
-│   │   ├── AdminRequestsPage.tsx  # 신청 관리 (승인/반려)
-│   │   ├── DashboardPage.tsx      # 대시보드
-│   │   ├── AdminUsersPage.tsx     # 사용자 관리
-│   │   └── SettingsPage.tsx       # 설정
+│   │   ├── LoginPage.tsx              # 로그인
+│   │   ├── RequestFormPage.tsx        # 신청서 작성 (draft 자동저장)
+│   │   ├── MyRequestsPage.tsx         # 내 신청 내역
+│   │   ├── RequestDetailPage.tsx      # 신청서 상세 (영수증/통장사본 미리보기)
+│   │   ├── AdminRequestsPage.tsx      # 신청 관리 (승인/반려)
+│   │   ├── SettlementPage.tsx         # 정산 처리 (승인건 선택)
+│   │   ├── SettlementListPage.tsx     # 정산 내역 목록
+│   │   ├── SettlementReportPage.tsx   # 정산 리포트 (PDF 내보내기)
+│   │   ├── DashboardPage.tsx          # 대시보드 (예산 현황/설정)
+│   │   ├── AdminUsersPage.tsx         # 사용자 관리
+│   │   └── SettingsPage.tsx           # 설정 (프로필/통장사본/서명)
 │   └── types/            # TypeScript 타입
-├── functions/            # Cloud Functions (Google Drive 업로드)
-│   ├── src/index.ts
+├── functions/            # Cloud Functions
+│   ├── src/index.ts          # uploadReceipts, uploadBankBook
 │   ├── service-account.json  (gitignored)
 │   └── .env                  (gitignored)
 ├── firebase.json         # Firebase 설정
@@ -211,6 +227,15 @@ finanace/
 
 | 컬렉션 | 용도 |
 |--------|------|
-| `users` | 사용자 정보 (이름, 연락처, 은행, 서명, 권한) |
-| `requests` | 신청서 데이터 (항목, 영수증, 승인 정보) |
+| `users` | 사용자 정보 (이름, 연락처, 은행, 통장사본, 서명, 권한) |
+| `requests` | 신청서 데이터 (항목, 영수증, 승인/정산 정보) |
+| `settlements` | 정산 리포트 (신청자별 통합 항목/영수증) |
 | `settings` | 서비스 설정 (예산 등) |
+
+## Google Drive 폴더 구조
+
+| 폴더 | 환경변수 | 용도 |
+|------|---------|------|
+| 영수증-운영위원회 | `GDRIVE_FOLDER_OPERATIONS` | 운영 위원회 영수증 |
+| 영수증-준비위원회 | `GDRIVE_FOLDER_PREPARATION` | 준비 위원회 영수증 |
+| 통장사본 | `GDRIVE_FOLDER_BANKBOOK` | 사용자 통장사본 |

@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import DisplayNameModal from './components/DisplayNameModal'
@@ -10,34 +10,44 @@ import AdminRequestsPage from './pages/AdminRequestsPage'
 import DashboardPage from './pages/DashboardPage'
 import AdminUsersPage from './pages/AdminUsersPage'
 import SettingsPage from './pages/SettingsPage'
+import SettlementPage from './pages/SettlementPage'
+import SettlementListPage from './pages/SettlementListPage'
+import SettlementReportPage from './pages/SettlementReportPage'
 
-function AppRoutes() {
+function AppLayout() {
   const { needsDisplayName, user } = useAuth()
-
   return (
     <>
       {user && needsDisplayName && <DisplayNameModal />}
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/request/new" element={<ProtectedRoute><RequestFormPage /></ProtectedRoute>} />
-        <Route path="/request/:id" element={<ProtectedRoute><RequestDetailPage /></ProtectedRoute>} />
-        <Route path="/my-requests" element={<ProtectedRoute><MyRequestsPage /></ProtectedRoute>} />
-        <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
-        <Route path="/admin/requests" element={<ProtectedRoute requiredRoles={['admin', 'approver']}><AdminRequestsPage /></ProtectedRoute>} />
-        <Route path="/admin/dashboard" element={<ProtectedRoute requiredRoles={['admin']}><DashboardPage /></ProtectedRoute>} />
-        <Route path="/admin/users" element={<ProtectedRoute requiredRoles={['admin']}><AdminUsersPage /></ProtectedRoute>} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
+      <Outlet />
     </>
   )
 }
 
+const router = createBrowserRouter([
+  {
+    element: <AppLayout />,
+    children: [
+      { path: '/login', element: <LoginPage /> },
+      { path: '/request/new', element: <ProtectedRoute><RequestFormPage /></ProtectedRoute> },
+      { path: '/request/:id', element: <ProtectedRoute><RequestDetailPage /></ProtectedRoute> },
+      { path: '/my-requests', element: <ProtectedRoute><MyRequestsPage /></ProtectedRoute> },
+      { path: '/settings', element: <ProtectedRoute><SettingsPage /></ProtectedRoute> },
+      { path: '/admin/requests', element: <ProtectedRoute requiredRoles={['admin', 'approver']}><AdminRequestsPage /></ProtectedRoute> },
+      { path: '/admin/dashboard', element: <ProtectedRoute requiredRoles={['admin']}><DashboardPage /></ProtectedRoute> },
+      { path: '/admin/users', element: <ProtectedRoute requiredRoles={['admin']}><AdminUsersPage /></ProtectedRoute> },
+      { path: '/admin/settlement/new', element: <ProtectedRoute requiredRoles={['admin', 'approver']}><SettlementPage /></ProtectedRoute> },
+      { path: '/admin/settlements', element: <ProtectedRoute requiredRoles={['admin', 'approver']}><SettlementListPage /></ProtectedRoute> },
+      { path: '/admin/settlement/:id', element: <ProtectedRoute requiredRoles={['admin', 'approver']}><SettlementReportPage /></ProtectedRoute> },
+      { path: '*', element: <Navigate to="/login" replace /> },
+    ],
+  },
+])
+
 export default function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
-    </BrowserRouter>
+    <AuthProvider>
+      <RouterProvider router={router} />
+    </AuthProvider>
   )
 }

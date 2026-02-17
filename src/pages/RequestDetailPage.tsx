@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../lib/firebase'
-import { PaymentRequest } from '../types'
+import { PaymentRequest, AppUser } from '../types'
 import Layout from '../components/Layout'
 import StatusBadge from '../components/StatusBadge'
 
 export default function RequestDetailPage() {
   const { id } = useParams<{ id: string }>()
   const [request, setRequest] = useState<PaymentRequest | null>(null)
+  const [requester, setRequester] = useState<AppUser | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -16,7 +17,13 @@ export default function RequestDetailPage() {
     const fetchRequest = async () => {
       const snap = await getDoc(doc(db, 'requests', id))
       if (snap.exists()) {
-        setRequest({ id: snap.id, ...snap.data() } as PaymentRequest)
+        const data = { id: snap.id, ...snap.data() } as PaymentRequest
+        setRequest(data)
+        // Fetch requester profile for bank book
+        const userSnap = await getDoc(doc(db, 'users', data.requestedBy.uid))
+        if (userSnap.exists()) {
+          setRequester(userSnap.data() as AppUser)
+        }
       }
       setLoading(false)
     }
@@ -73,17 +80,53 @@ export default function RequestDetailPage() {
           </tfoot>
         </table>
 
+        {/* 영수증 - 이미지 미리보기 포함 */}
         {request.receipts.length > 0 && (
           <div className="mb-6">
-            <h3 className="text-sm font-medium text-gray-700 mb-2">영수증</h3>
-            <ul className="space-y-1">
+            <h3 className="text-sm font-medium text-gray-700 mb-3">영수증 ({request.receipts.length}개)</h3>
+            <div className="grid grid-cols-2 gap-3">
               {request.receipts.map((r, i) => (
-                <li key={i}>
-                  <a href={r.driveUrl} target="_blank" rel="noopener noreferrer"
-                    className="text-sm text-blue-600 hover:underline">{r.fileName}</a>
-                </li>
+                <div key={i} className="border border-gray-200 rounded-lg overflow-hidden">
+                  <a href={r.driveUrl} target="_blank" rel="noopener noreferrer">
+                    <img
+                      src={`https://drive.google.com/thumbnail?id=${r.driveFileId}&sz=w400`}
+                      alt={r.fileName}
+                      className="w-full h-48 object-contain bg-gray-50"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
+                    />
+                  </a>
+                  <div className="px-3 py-2 bg-gray-50 border-t">
+                    <a href={r.driveUrl} target="_blank" rel="noopener noreferrer"
+                      className="text-xs text-blue-600 hover:underline truncate block">{r.fileName}</a>
+                  </div>
+                </div>
               ))}
-            </ul>
+            </div>
+          </div>
+        )}
+
+        {/* 통장사본 */}
+        {requester?.bankBookDriveUrl && (
+          <div className="mb-6">
+            <h3 className="text-sm font-medium text-gray-700 mb-3">통장사본</h3>
+            <div className="border border-gray-200 rounded-lg overflow-hidden inline-block">
+              <a href={requester.bankBookDriveUrl} target="_blank" rel="noopener noreferrer">
+                {requester.bankBookImage ? (
+                  <img src={requester.bankBookImage} alt="통장사본"
+                    className="max-h-48 object-contain bg-gray-50" />
+                ) : (
+                  <img
+                    src={`https://drive.google.com/thumbnail?id=${requester.bankBookDriveId}&sz=w400`}
+                    alt="통장사본"
+                    className="max-h-48 object-contain bg-gray-50"
+                  />
+                )}
+              </a>
+              <div className="px-3 py-2 bg-gray-50 border-t">
+                <a href={requester.bankBookDriveUrl} target="_blank" rel="noopener noreferrer"
+                  className="text-xs text-blue-600 hover:underline">Google Drive에서 보기</a>
+              </div>
+            </div>
           </div>
         )}
 
@@ -110,6 +153,14 @@ export default function RequestDetailPage() {
             <div className="border border-gray-200 rounded p-2 bg-gray-50 inline-block">
               <img src={request.approvalSignature} alt="승인 서명" className="max-h-20" />
             </div>
+          </div>
+        )}
+
+        {request.status === 'settled' && request.settlementId && (
+          <div className="mt-4 pt-4 border-t">
+            <span className="text-sm text-gray-500">정산 리포트: </span>
+            <a href={`/admin/settlement/${request.settlementId}`}
+              className="text-sm text-purple-600 hover:underline">리포트 보기</a>
           </div>
         )}
 

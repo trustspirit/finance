@@ -46,6 +46,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               bankAccount: '',
               defaultCommittee: 'operations',
               signature: '',
+              bankBookImage: '',
+              bankBookDriveId: '',
+              bankBookDriveUrl: '',
               role: 'user',
             }
             await setDoc(doc(db, 'users', firebaseUser.uid), newUser)

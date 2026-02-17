@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect, useCallback } from 'react'
+import { useNavigate, useBlocker } from 'react-router-dom'
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
 import { httpsCallable } from 'firebase/functions'
 import { db, functions } from '../lib/firebase'
@@ -9,7 +9,38 @@ import { RequestItem, Receipt, Committee } from '../types'
 import Layout from '../components/Layout'
 import ItemRow from '../components/ItemRow'
 
+const DRAFT_KEY = 'request-form-draft'
 const emptyItem = (): RequestItem => ({ description: '', budgetCode: 0, amount: 0 })
+
+interface DraftData {
+  payee: string
+  phone: string
+  bankName: string
+  bankAccount: string
+  date: string
+  committee: Committee
+  items: RequestItem[]
+  comments: string
+  savedAt: string
+}
+
+function loadDraft(): DraftData | null {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY)
+    if (!raw) return null
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
+}
+
+function saveDraft(data: Omit<DraftData, 'savedAt'>) {
+  sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ ...data, savedAt: new Date().toISOString() }))
+}
+
+function clearDraft() {
+  sessionStorage.removeItem(DRAFT_KEY)
+}
 
 function formatPhone(value: string): string {
   const digits = value.replace(/\D/g, '').slice(0, 11)
@@ -22,22 +53,76 @@ export default function RequestFormPage() {
   const { user, appUser } = useAuth()
   const navigate = useNavigate()
 
-  const [payee, setPayee] = useState(appUser?.displayName || appUser?.name || '')
-  const [phone, setPhone] = useState(appUser?.phone || '')
-  const [bankName, setBankName] = useState(appUser?.bankName || '')
-  const [bankAccount, setBankAccount] = useState(appUser?.bankAccount || '')
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
+  const draft = loadDraft()
+
+  const [payee, setPayee] = useState(draft?.payee || appUser?.displayName || appUser?.name || '')
+  const [phone, setPhone] = useState(draft?.phone || appUser?.phone || '')
+  const [bankName, setBankName] = useState(draft?.bankName || appUser?.bankName || '')
+  const [bankAccount, setBankAccount] = useState(draft?.bankAccount || appUser?.bankAccount || '')
+  const [date, setDate] = useState(draft?.date || new Date().toISOString().slice(0, 10))
   const [session] = useState('한국')
-  const [committee, setCommittee] = useState<Committee>(appUser?.defaultCommittee || 'operations')
-  const [items, setItems] = useState<RequestItem[]>([emptyItem()])
+  const [committee, setCommittee] = useState<Committee>(draft?.committee || appUser?.defaultCommittee || 'operations')
+  const [items, setItems] = useState<RequestItem[]>(draft?.items?.length ? draft.items : [emptyItem()])
   const [files, setFiles] = useState<File[]>([])
-  const [comments, setComments] = useState('')
+  const [comments, setComments] = useState(draft?.comments || '')
   const [submitting, setSubmitting] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
+  const [submitted, setSubmitted] = useState(false)
+  const [showDraftBanner, setShowDraftBanner] = useState(!!draft)
 
   const totalAmount = items.reduce((sum, item) => sum + item.amount, 0)
   const validItems = items.filter((item) => item.description && item.amount > 0)
+
+  // Check if form has meaningful content (beyond defaults)
+  const hasContent = useCallback(() => {
+    const hasItems = items.some((item) => item.description || item.amount > 0)
+    const hasComments = comments.trim().length > 0
+    return hasItems || hasComments
+  }, [items, comments])
+
+  // Auto-save draft on changes
+  useEffect(() => {
+    if (submitted) return
+    const timer = setTimeout(() => {
+      if (hasContent()) {
+        saveDraft({ payee, phone, bankName, bankAccount, date, committee, items, comments })
+      }
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [payee, phone, bankName, bankAccount, date, committee, items, comments, hasContent, submitted])
+
+  // Block navigation when form has content (except to /settings)
+  const blocker = useBlocker(({ nextLocation }) => {
+    if (submitted || submitting || showConfirm) return false
+    if (nextLocation.pathname === '/settings') return false
+    return hasContent()
+  })
+
+  // Browser tab close / refresh warning
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (hasContent() && !submitted) {
+        e.preventDefault()
+      }
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [hasContent, submitted])
+
+  const handleClearDraft = () => {
+    clearDraft()
+    setPayee(appUser?.displayName || appUser?.name || '')
+    setPhone(appUser?.phone || '')
+    setBankName(appUser?.bankName || '')
+    setBankAccount(appUser?.bankAccount || '')
+    setDate(new Date().toISOString().slice(0, 10))
+    setCommittee(appUser?.defaultCommittee || 'operations')
+    setItems([emptyItem()])
+    setComments('')
+    setFiles([])
+    setShowDraftBanner(false)
+  }
 
   const updateItem = (index: number, item: RequestItem) => {
     const next = [...items]
@@ -64,6 +149,7 @@ export default function RequestFormPage() {
     const missingBudgetCode = validItems.some((item) => !item.budgetCode)
     if (missingBudgetCode) errs.push('모든 항목의 예산 코드를 선택해주세요.')
     if (files.length === 0) errs.push('영수증 파일을 첨부해주세요.')
+    if (!appUser?.bankBookDriveUrl) errs.push('통장사본이 등록되지 않았습니다. 설정에서 통장사본을 업로드해주세요.')
     return errs
   }
 
@@ -100,7 +186,6 @@ export default function RequestFormPage() {
         receipts = result.data
       }
 
-      // 프로필에 전화번호, 은행 정보 자동 저장
       const profileUpdates: Record<string, string> = {}
       if (phone.trim() !== (appUser.phone || '')) profileUpdates.phone = phone.trim()
       if (bankName.trim() !== (appUser.bankName || '')) profileUpdates.bankName = bankName.trim()
@@ -124,10 +209,14 @@ export default function RequestFormPage() {
         receipts,
         requestedBy: { uid: user.uid, name: appUser.displayName || appUser.name, email: appUser.email },
         approvedBy: null,
+        approvalSignature: null,
         approvedAt: null,
+        settlementId: null,
         comments,
       })
 
+      setSubmitted(true)
+      clearDraft()
       navigate('/my-requests')
     } catch (err) {
       console.error(err)
@@ -139,6 +228,24 @@ export default function RequestFormPage() {
 
   return (
     <Layout>
+      {/* Draft restored banner */}
+      {showDraftBanner && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 max-w-4xl mx-auto flex items-center justify-between">
+          <p className="text-sm text-blue-700">
+            이전에 작성 중이던 신청서가 복원되었습니다.
+            {draft?.savedAt && (
+              <span className="text-blue-500 ml-1">
+                ({new Date(draft.savedAt).toLocaleString('ko-KR')})
+              </span>
+            )}
+          </p>
+          <button onClick={handleClearDraft}
+            className="text-xs text-blue-600 hover:text-blue-800 whitespace-nowrap ml-3">
+            초기화
+          </button>
+        </div>
+      )}
+
       <form onSubmit={handlePreSubmit} className="bg-white rounded-lg shadow p-6 max-w-4xl mx-auto">
         <h2 className="text-xl font-bold mb-1">지불 / 환불 신청서</h2>
         <p className="text-sm text-gray-500 mb-6">Payment / Reimbursement Request Form</p>
@@ -320,6 +427,28 @@ export default function RequestFormPage() {
               <button onClick={handleSubmit}
                 className="px-4 py-2 text-sm text-white bg-blue-600 rounded hover:bg-blue-700">
                 확인 및 제출
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 페이지 이동 확인 모달 */}
+      {blocker.state === 'blocked' && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-sm mx-4">
+            <h3 className="text-lg font-bold mb-2">작성 중인 신청서가 있습니다</h3>
+            <p className="text-sm text-gray-500 mb-4">
+              작성 내용이 자동 저장되어 있습니다. 다시 돌아오면 이어서 작성할 수 있습니다.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button onClick={() => blocker.reset?.()}
+                className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-50">
+                계속 작성
+              </button>
+              <button onClick={() => blocker.proceed?.()}
+                className="px-4 py-2 text-sm text-white bg-blue-600 rounded hover:bg-blue-700">
+                페이지 이동
               </button>
             </div>
           </div>

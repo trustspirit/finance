@@ -14,6 +14,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   const adminItems = [
     { to: '/admin/requests', label: '신청 관리' },
+    { to: '/admin/settlements', label: '정산' },
     { to: '/admin/dashboard', label: '대시보드' },
     { to: '/admin/users', label: '사용자 관리' },
   ]

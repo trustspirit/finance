@@ -92,10 +92,10 @@ export default function AdminRequestsPage() {
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-bold">신청 관리</h2>
         <div className="flex gap-2">
-          {(['all', 'pending', 'approved', 'rejected'] as const).map((f) => (
+          {(['all', 'pending', 'approved', 'settled', 'rejected'] as const).map((f) => (
             <button key={f} onClick={() => setFilter(f)}
               className={`px-3 py-1 rounded text-sm ${filter === f ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
-              {f === 'all' ? '전체' : f === 'pending' ? '대기' : f === 'approved' ? '승인' : '반려'}
+              {f === 'all' ? '전체' : f === 'pending' ? '대기' : f === 'approved' ? '승인' : f === 'settled' ? '정산' : '반려'}
             </button>
           ))}
         </div>

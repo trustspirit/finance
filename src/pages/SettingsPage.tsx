@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { httpsCallable } from 'firebase/functions'
+import { functions } from '../lib/firebase'
 import { useAuth } from '../contexts/AuthContext'
 import { Committee } from '../types'
 import Layout from '../components/Layout'
@@ -11,6 +13,15 @@ function formatPhone(value: string): string {
   return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`
 }
 
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.readAsDataURL(file)
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = reject
+  })
+}
+
 export default function SettingsPage() {
   const { appUser, updateAppUser } = useAuth()
   const [displayName, setDisplayName] = useState(appUser?.displayName || '')
@@ -21,6 +32,11 @@ export default function SettingsPage() {
   const [signature, setSignature] = useState(appUser?.signature || '')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+
+  // Bank book
+  const [bankBookFile, setBankBookFile] = useState<File | null>(null)
+  const [uploadingBankBook, setUploadingBankBook] = useState(false)
+  const hasBankBook = !!(appUser?.bankBookDriveUrl)
 
   const handleSave = async () => {
     if (!displayName.trim()) {
@@ -45,6 +61,35 @@ export default function SettingsPage() {
       alert('저장에 실패했습니다.')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleUploadBankBook = async () => {
+    if (!bankBookFile) return
+    setUploadingBankBook(true)
+    try {
+      const data = await fileToBase64(bankBookFile)
+      const uploadFn = httpsCallable<
+        { file: { name: string; data: string } },
+        { fileName: string; driveFileId: string; driveUrl: string }
+      >(functions, 'uploadBankBook')
+
+      const result = await uploadFn({ file: { name: bankBookFile.name, data } })
+      const { driveFileId, driveUrl } = result.data
+
+      // Save preview as base64 for display
+      await updateAppUser({
+        bankBookImage: data,
+        bankBookDriveId: driveFileId,
+        bankBookDriveUrl: driveUrl,
+      })
+      setBankBookFile(null)
+      alert('통장사본이 업로드되었습니다.')
+    } catch (error) {
+      console.error('Failed to upload bank book:', error)
+      alert('업로드에 실패했습니다. Google Drive 설정을 확인해주세요.')
+    } finally {
+      setUploadingBankBook(false)
     }
   }
 
@@ -96,6 +141,42 @@ export default function SettingsPage() {
             className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
         </div>
 
+        {/* 통장사본 */}
+        <div className="mb-4 p-4 border border-gray-200 rounded-lg">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            통장사본 <span className="text-red-500">*</span>
+          </label>
+
+          {hasBankBook && (
+            <div className="mb-3">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">업로드 완료</span>
+                <a href={appUser?.bankBookDriveUrl} target="_blank" rel="noopener noreferrer"
+                  className="text-xs text-blue-600 hover:underline">Google Drive에서 보기</a>
+              </div>
+              {appUser?.bankBookImage && (
+                <img src={appUser.bankBookImage} alt="통장사본"
+                  className="max-h-32 border border-gray-200 rounded" />
+              )}
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            <input type="file" accept="image/*,.pdf"
+              onChange={(e) => setBankBookFile(e.target.files?.[0] || null)}
+              className="text-sm text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+            {bankBookFile && (
+              <button onClick={handleUploadBankBook} disabled={uploadingBankBook}
+                className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 disabled:bg-gray-400 whitespace-nowrap">
+                {uploadingBankBook ? '업로드 중...' : '업로드'}
+              </button>
+            )}
+          </div>
+          <p className="text-xs text-gray-400 mt-2">
+            {hasBankBook ? '새 파일을 업로드하면 기존 파일이 교체됩니다.' : '신청서 제출을 위해 통장사본을 업로드해주세요.'}
+          </p>
+        </div>
+
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-1">기본 위원회</label>
           <div className="flex gap-4 mt-1">
@@ -116,7 +197,7 @@ export default function SettingsPage() {
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 mb-1">서명</label>
           <SignaturePad initialData={signature} onChange={setSignature} />
-          <p className="text-xs text-gray-400 mt-1">승인 시 사용될 서명입니다. 저장하면 매번 다시 그리지 않아도 됩니다.</p>
+          <p className="text-xs text-gray-400 mt-1">승인 시 사용될 서명입니다.</p>
         </div>
 
         <div className="flex items-center gap-3">
