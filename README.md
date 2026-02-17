@@ -1,73 +1,119 @@
-# React + TypeScript + Vite
+# 지불 / 환불 신청서 웹 서비스
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+FSY 운영을 위한 지불/환불 신청 및 승인 웹 서비스입니다.
 
-Currently, two official plugins are available:
+## 시작하기
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### 최초 로그인
 
-## React Compiler
+1. Google 계정으로 로그인합니다.
+2. 최초 로그인 시 기본 정보를 입력하는 화면이 나타납니다.
+   - **선호하는 이름** - 화면 및 신청서에 표시될 이름
+   - **전화번호** - 연락처
+   - **은행 / 계좌번호** - 환불 수령 계좌
+   - **소속 위원회** - 운영 위원회 또는 준비 위원회
+3. 정보를 입력하고 "시작하기"를 누르면 서비스를 이용할 수 있습니다.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+## 일반 사용자 기능
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### 신청서 작성
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+1. 상단 메뉴에서 **새 신청서**를 클릭합니다.
+2. 다음 항목을 입력합니다.
+   - **신청자, 전화번호, 은행, 계좌번호** - 설정에서 저장한 정보가 자동으로 채워집니다.
+   - **날짜** - 지출이 발생한 날짜
+   - **위원회** - 기본 위원회가 자동 선택되며, 변경 가능합니다.
+   - **항목** - 지출 내역을 입력합니다. (설명, 예산 코드, 금액)
+     - "**+ 항목 추가**"로 최대 10개까지 추가할 수 있습니다.
+     - 불필요한 항목은 **X** 버튼으로 삭제합니다.
+   - **영수증** - 영수증 이미지 또는 PDF 파일을 첨부합니다. (필수)
+   - **비고** - 추가 설명이 필요한 경우 입력합니다.
+3. **신청서 제출**을 누르면 확인 모달이 나타납니다.
+   - 항목 총액과 영수증 금액이 일치하는지 확인해주세요.
+   - "확인 및 제출"을 누르면 신청이 완료됩니다.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### 예산 코드 안내
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+| 코드 | 용도 |
+|------|------|
+| 5862 | 숙소, 시설 대여 |
+| 5110 | 교통비 |
+| 5400 | 식비, 보험, 행정 비용 |
+| 5200 | 활동 물품, 인쇄물 |
+| 4500 | 참가비 |
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 내 신청 내역 확인
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+1. 상단 메뉴에서 **내 신청 내역**을 클릭합니다.
+2. 제출한 신청서 목록이 표시됩니다.
+   - **대기중** (노란색) - 승인 대기 상태
+   - **승인** (초록색) - 승인 완료
+   - **반려** (빨간색) - 반려됨
+3. 날짜를 클릭하면 신청서 상세 내용을 확인할 수 있습니다.
+   - 영수증 파일 링크 (Google Drive)
+   - 승인자 정보 및 승인 서명
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+### 설정 변경
+
+상단 우측의 **톱니바퀴 아이콘**을 클릭하면 설정 페이지로 이동합니다.
+
+변경 가능한 항목:
+- 선호하는 이름
+- 전화번호
+- 은행 / 계좌번호
+- 기본 위원회
+- 서명 (승인자인 경우 승인 시 사용)
+
+변경 후 **저장**을 눌러야 반영됩니다. 저장된 정보는 다음 신청서 작성 시 자동으로 채워집니다.
+
+---
+
+## 승인자 / 관리자 기능
+
+### 권한 종류
+
+| 권한 | 설명 |
+|------|------|
+| **일반 사용자** | 신청서 작성 및 조회 |
+| **승인자** (approver) | + 신청 관리 (승인/반려), 예산 설정 |
+| **관리자** (admin) | + 대시보드, 사용자 관리 |
+
+### 신청 관리 (승인자, 관리자)
+
+1. 상단 메뉴에서 **신청 관리**를 클릭합니다.
+2. 전체 신청 목록이 표시됩니다.
+   - 상단 필터 버튼(전체/대기/승인/반려)으로 필터링할 수 있습니다.
+3. 대기중인 신청서에 **승인** 또는 **반려** 버튼이 표시됩니다.
+   - **승인** 클릭 시 서명 모달이 나타납니다.
+     - 설정에서 저장한 서명이 있으면 "저장된 서명 사용"을 체크할 수 있습니다.
+     - 새로 서명을 그릴 수도 있습니다.
+     - "서명하고 승인"을 누르면 승인이 완료됩니다.
+   - **반려** 클릭 시 확인 후 반려됩니다.
+
+### 대시보드 (관리자)
+
+1. 상단 메뉴에서 **대시보드**를 클릭합니다.
+2. 다음 정보를 확인할 수 있습니다.
+   - **요약** - 전체/대기/승인/반려 건수 및 금액
+   - **예산 현황** - 총 예산 대비 사용률 (프로그레스 바)
+   - **위원회별 현황** - 운영/준비 위원회별 건수, 총액, 승인액
+   - **예산 코드별 현황** - 코드별 건수, 승인액, 배정 예산
+3. **예산 설정** (하단)
+   - "수정" 버튼을 클릭하여 총 예산과 코드별 예산을 설정합니다.
+   - 예산을 설정하면 대시보드 상단에 예산 현황 바가 표시됩니다.
+
+### 사용자 관리 (관리자)
+
+1. 상단 메뉴에서 **사용자 관리**를 클릭합니다.
+2. 전체 사용자 목록이 표시됩니다.
+3. 드롭다운으로 권한을 변경할 수 있습니다.
+   - 일반 사용자 / 승인자 / 관리자
+   - 본인의 권한은 변경할 수 없습니다.
+
+---
+
+## 기술 지원
+
+서비스 설정 및 배포에 대한 자세한 내용은 [SETUP.md](./SETUP.md)를 참고하세요.
