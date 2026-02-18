@@ -2,15 +2,15 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../lib/firebase'
+import { useTranslation } from 'react-i18next'
 import { formatFirestoreDate } from '../lib/utils'
 import { Settlement } from '../types'
-import { BUDGET_CODE_LABELS } from '../constants/budgetCodes'
-import { COMMITTEE_LABELS } from '../constants/labels'
 import Layout from '../components/Layout'
 import Spinner from '../components/Spinner'
 import InfoGrid from '../components/InfoGrid'
 
 export default function SettlementReportPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const [settlement, setSettlement] = useState<Settlement | null>(null)
   const [loading, setLoading] = useState(true)
@@ -74,7 +74,7 @@ export default function SettlementReportPage() {
 <html>
 <head>
   <meta charset="utf-8">
-  <title>정산 리포트 - ${settlement.payee}</title>
+  <title>${t('settlement.reportTitle')} - ${settlement.payee}</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Malgun Gothic', sans-serif; font-size: 12px; color: #333; padding: 20mm; }
@@ -100,25 +100,25 @@ export default function SettlementReportPage() {
   </style>
 </head>
 <body>
-  <h1>지불 / 환불 정산 리포트</h1>
-  <p class="subtitle">Payment / Reimbursement Settlement Report</p>
+  <h1>${t('settlement.reportTitle')}</h1>
+  <p class="subtitle">${t('settlement.reportSubtitle')}</p>
 
   <div class="info-grid">
-    <div><span class="label">신청자:</span> ${escapeHtml(settlement.payee)}</div>
-    <div><span class="label">정산일:</span> ${escapeHtml(dateStr)}</div>
-    <div><span class="label">전화번호:</span> ${escapeHtml(settlement.phone)}</div>
-    <div><span class="label">세션:</span> ${escapeHtml(settlement.session)}</div>
-    <div><span class="label">은행:</span> ${escapeHtml(settlement.bankName)} ${escapeHtml(settlement.bankAccount)}</div>
-    <div><span class="label">위원회:</span> ${COMMITTEE_LABELS[settlement.committee]}</div>
+    <div><span class="label">${t('field.payee')}:</span> ${escapeHtml(settlement.payee)}</div>
+    <div><span class="label">${t('settlement.settlementDate')}:</span> ${escapeHtml(dateStr)}</div>
+    <div><span class="label">${t('field.phone')}:</span> ${escapeHtml(settlement.phone)}</div>
+    <div><span class="label">${t('field.session')}:</span> ${escapeHtml(settlement.session)}</div>
+    <div><span class="label">${t('field.bankAndAccount')}:</span> ${escapeHtml(settlement.bankName)} ${escapeHtml(settlement.bankAccount)}</div>
+    <div><span class="label">${t('committee.label')}:</span> ${t(`committee.${settlement.committee}`)}</div>
   </div>
 
   <table>
     <thead>
       <tr>
         <th>#</th>
-        <th>설명</th>
-        <th>예산 코드</th>
-        <th class="text-right">금액</th>
+        <th>${t('field.comments')}</th>
+        <th>Budget Code</th>
+        <th class="text-right">${t('field.totalAmount')}</th>
       </tr>
     </thead>
     <tbody>
@@ -126,34 +126,63 @@ export default function SettlementReportPage() {
         <tr>
           <td>${i + 1}</td>
           <td>${escapeHtml(item.description)}</td>
-          <td>${item.budgetCode} (${BUDGET_CODE_LABELS[item.budgetCode] || ''})</td>
+          <td>${item.budgetCode} (${t(`budgetCode.${item.budgetCode}`)})</td>
           <td class="text-right">₩${item.amount.toLocaleString()}</td>
         </tr>
       `).join('')}
       <tr class="total-row">
-        <td colspan="3" class="text-right">합계</td>
+        <td colspan="3" class="text-right">${t('field.totalAmount')}</td>
         <td class="text-right">₩${settlement.totalAmount.toLocaleString()}</td>
       </tr>
     </tbody>
   </table>
 
-  <p style="font-size:11px; color:#666;">통합 신청 건수: ${settlement.requestIds.length}건 | 영수증: ${settlement.receipts.length}개</p>
+  <p style="font-size:11px; color:#666;">${t('settlement.requestCount')}: ${settlement.requestIds.length} | ${t('field.receipts')}: ${settlement.receipts.length}</p>
 
-  ${settlement.approvalSignature ? `
-  <div class="signature-section">
-    <div class="signature-box">
-      <img src="${settlement.approvalSignature}" alt="승인 서명" />
-      <div class="signature-label">승인자 서명</div>
+  <div style="margin-top:30px; display:flex; justify-content:space-between; align-items:flex-end;">
+    <div style="flex:1;">
+      <p style="font-size:10px; color:#666; margin-bottom:4px;">Requested by</p>
+      ${settlement.approvalSignature ? `<img src="${settlement.approvalSignature}" alt="${t('approval.approvalSignature')}" style="max-height:50px;" />` : ''}
+      <div style="border-top:1px solid #ccc; width:200px; margin-top:4px; padding-top:2px; font-size:10px;">${escapeHtml(settlement.payee)}</div>
+    </div>
+    <div style="flex:1; text-align:center;">
+      <p style="font-size:10px; color:#666; margin-bottom:4px;">Approved by (signature of budget approver)</p>
+      <div style="border-top:1px solid #ccc; width:200px; margin:4px auto 0; padding-top:2px; font-size:10px;">&nbsp;</div>
     </div>
   </div>
-  ` : ''}
+
+  <div style="margin-top:30px; border:1px solid #ddd; padding:12px; font-size:11px;">
+    <p style="font-weight:600; margin-bottom:8px;">Area Office Finance Verification</p>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+      <div>
+        <p style="color:#666; font-size:10px;">Document No.</p>
+        <p style="font-weight:600;">KOR01-6762808-5xxx-KYSA2025KOR</p>
+      </div>
+      <div>
+        <p style="color:#666; font-size:10px;">Due Date</p>
+        <div style="border-bottom:1px solid #ccc; height:20px;"></div>
+      </div>
+      <div>
+        <p style="color:#666; font-size:10px;">Signature</p>
+        <div style="border-bottom:1px solid #ccc; height:30px;"></div>
+      </div>
+      <div>
+        <p style="color:#666; font-size:10px;">Date approved</p>
+        <div style="border-bottom:1px solid #ccc; height:20px;"></div>
+      </div>
+    </div>
+    <div style="margin-top:8px;">
+      <p style="color:#666; font-size:10px;">Additional Information / Comments</p>
+      <div style="border-bottom:1px solid #ccc; height:30px;"></div>
+    </div>
+  </div>
 
   ${images.length > 0 ? `
   <div class="receipt-page">
-    <h2>첨부 영수증</h2>
+    <h2>${t('field.receipts')}</h2>
     ${images.map((img) => img.dataUrl
       ? `<div><p class="receipt-name">${escapeHtml(img.fileName)}</p><img class="receipt-img" src="${img.dataUrl}" /></div>`
-      : `<div><p class="receipt-name">${escapeHtml(img.fileName)}</p><p class="receipt-link">이미지를 불러올 수 없습니다. Google Drive에서 직접 확인해주세요.</p></div>`
+      : `<div><p class="receipt-name">${escapeHtml(img.fileName)}</p><p class="receipt-link">Failed to load image. Please check directly on Google Drive.</p></div>`
     ).join('')}
   </div>
   ` : ''}
@@ -170,13 +199,13 @@ export default function SettlementReportPage() {
         setExporting(false)
       }, 1500)
     } else {
-      alert('팝업이 차단되었습니다. 팝업을 허용해주세요.')
+      alert('Popup blocked. Please allow popups for this site.')
       setExporting(false)
     }
   }
 
   if (loading) return <Layout><Spinner /></Layout>
-  if (!settlement) return <Layout><p className="text-gray-500">정산 리포트를 찾을 수 없습니다.</p></Layout>
+  if (!settlement) return <Layout><p className="text-gray-500">{t('detail.notFound')}</p></Layout>
 
   const dateStr = formatFirestoreDate(settlement.createdAt)
 
@@ -185,35 +214,35 @@ export default function SettlementReportPage() {
       <div ref={reportRef} className="bg-white rounded-lg shadow p-6 max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-xl font-bold">지불 / 환불 정산 리포트</h2>
-            <p className="text-sm text-gray-500">Payment / Reimbursement Settlement Report</p>
+            <h2 className="text-xl font-bold">{t('settlement.reportTitle')}</h2>
+            <p className="text-sm text-gray-500">{t('settlement.reportSubtitle')}</p>
           </div>
           <button onClick={handleExportPdf} disabled={exporting}
             className="bg-purple-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-purple-700 disabled:bg-gray-400">
-            {exporting ? '준비 중...' : 'PDF 내보내기'}
+            {exporting ? t('settlement.exporting') : t('settlement.exportPdf')}
           </button>
         </div>
 
         <InfoGrid className="mb-6" items={[
-          { label: '신청자', value: settlement.payee },
-          { label: '정산일', value: dateStr },
-          { label: '전화번호', value: settlement.phone },
-          { label: '세션', value: settlement.session },
-          { label: '은행 / 계좌', value: `${settlement.bankName} ${settlement.bankAccount}` },
-          { label: '위원회', value: COMMITTEE_LABELS[settlement.committee] },
+          { label: t('field.payee'), value: settlement.payee },
+          { label: t('settlement.settlementDate'), value: dateStr },
+          { label: t('field.phone'), value: settlement.phone },
+          { label: t('field.session'), value: settlement.session },
+          { label: t('field.bankAndAccount'), value: `${settlement.bankName} ${settlement.bankAccount}` },
+          { label: t('committee.label'), value: t(`committee.${settlement.committee}`) },
         ]} />
 
         <div className="mb-2 text-sm text-gray-500">
-          통합 신청 건수: {settlement.requestIds.length}건
+          {t('settlement.requestCount')}: {settlement.requestIds.length}
         </div>
 
         <table className="w-full text-sm mb-6">
           <thead className="border-b bg-gray-50">
             <tr>
               <th className="text-left px-3 py-2">#</th>
-              <th className="text-left px-3 py-2">설명</th>
-              <th className="text-left px-3 py-2">예산 코드</th>
-              <th className="text-right px-3 py-2">금액</th>
+              <th className="text-left px-3 py-2">{t('field.comments')}</th>
+              <th className="text-left px-3 py-2">Budget Code</th>
+              <th className="text-right px-3 py-2">{t('field.totalAmount')}</th>
             </tr>
           </thead>
           <tbody className="divide-y">
@@ -223,7 +252,7 @@ export default function SettlementReportPage() {
                 <td className="px-3 py-2">{item.description}</td>
                 <td className="px-3 py-2">
                   {item.budgetCode}
-                  <span className="ml-1 text-gray-400 text-xs">{BUDGET_CODE_LABELS[item.budgetCode]}</span>
+                  <span className="ml-1 text-gray-400 text-xs">{t(`budgetCode.${item.budgetCode}`)}</span>
                 </td>
                 <td className="px-3 py-2 text-right">₩{item.amount.toLocaleString()}</td>
               </tr>
@@ -231,7 +260,7 @@ export default function SettlementReportPage() {
           </tbody>
           <tfoot className="border-t font-medium">
             <tr>
-              <td colSpan={3} className="px-3 py-2 text-right">합계</td>
+              <td colSpan={3} className="px-3 py-2 text-right">{t('field.totalAmount')}</td>
               <td className="px-3 py-2 text-right">₩{settlement.totalAmount.toLocaleString()}</td>
             </tr>
           </tfoot>
@@ -239,7 +268,7 @@ export default function SettlementReportPage() {
 
         {settlement.receipts.length > 0 && (
           <div className="mb-6">
-            <h3 className="text-sm font-medium text-gray-700 mb-2">영수증 ({settlement.receipts.length}개)</h3>
+            <h3 className="text-sm font-medium text-gray-700 mb-2">{t('field.receipts')} ({settlement.receipts.length})</h3>
             <ul className="space-y-1">
               {settlement.receipts.map((r, i) => (
                 <li key={i}>
@@ -251,17 +280,52 @@ export default function SettlementReportPage() {
           </div>
         )}
 
-        {settlement.approvalSignature && (
-          <div className="mb-6 pt-4 border-t">
-            <h3 className="text-sm font-medium text-gray-700 mb-2">승인 서명</h3>
-            <div className="border border-gray-200 rounded p-2 bg-gray-50 inline-block">
-              <img src={settlement.approvalSignature} alt="승인 서명" className="max-h-20" />
+        {/* Signatures */}
+        <div className="mb-6 pt-4 border-t">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div>
+              <p className="text-xs text-gray-500 mb-1">Requested by</p>
+              {settlement.approvalSignature && (
+                <img src={settlement.approvalSignature} alt={t('approval.approvalSignature')} className="max-h-16 mb-1" />
+              )}
+              <div className="border-t border-gray-300 pt-1 text-sm">{settlement.payee}</div>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 mb-1">Approved by (budget approver)</p>
+              <div className="border-t border-gray-300 pt-1 text-sm h-16">&nbsp;</div>
             </div>
           </div>
-        )}
+        </div>
+
+        {/* Area Office Finance Verification */}
+        <div className="mb-6 border border-gray-200 rounded-lg p-4">
+          <h3 className="text-sm font-semibold mb-3">Area Office Finance Verification</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+            <div>
+              <p className="text-xs text-gray-500">Document No.</p>
+              <p className="font-mono font-medium">KOR01-6762808-5xxx-KYSA2025KOR</p>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Due Date</p>
+              <div className="border-b border-gray-300 h-6"></div>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Signature</p>
+              <div className="border-b border-gray-300 h-8"></div>
+            </div>
+            <div>
+              <p className="text-xs text-gray-500">Date approved</p>
+              <div className="border-b border-gray-300 h-6"></div>
+            </div>
+          </div>
+          <div className="mt-3">
+            <p className="text-xs text-gray-500">Additional Information / Comments</p>
+            <div className="border-b border-gray-300 h-8"></div>
+          </div>
+        </div>
 
         <div className="mt-6">
-          <Link to="/admin/settlements" className="text-sm text-purple-600 hover:underline">← 정산 내역으로</Link>
+          <Link to="/admin/settlements" className="text-sm text-purple-600 hover:underline">{t('settlement.backToList')}</Link>
         </div>
       </div>
     </Layout>

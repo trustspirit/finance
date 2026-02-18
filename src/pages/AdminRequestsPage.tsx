@@ -10,9 +10,10 @@ import SignaturePad from '../components/SignaturePad'
 import Spinner from '../components/Spinner'
 import PageHeader from '../components/PageHeader'
 import Modal from '../components/Modal'
-import { COMMITTEE_LABELS_SHORT, STATUS_FILTER_LABELS } from '../constants/labels'
+import { useTranslation } from 'react-i18next'
 
 export default function AdminRequestsPage() {
+  const { t } = useTranslation()
   const { user, appUser } = useAuth()
   const [requests, setRequests] = useState<PaymentRequest[]>([])
   const [loading, setLoading] = useState(true)
@@ -40,7 +41,7 @@ export default function AdminRequestsPage() {
   const handleApproveWithSign = (requestId: string) => {
     const req = requests.find((r) => r.id === requestId)
     if (req && req.requestedBy.uid === user?.uid) {
-      alert('본인이 신청한 건은 승인할 수 없습니다.')
+      alert(t('approval.selfApproveError'))
       return
     }
     setSignatureData(appUser?.signature || '')
@@ -50,7 +51,7 @@ export default function AdminRequestsPage() {
   const handleConfirmApproval = async () => {
     if (!user || !appUser || !signModalRequestId) return
     if (!signatureData) {
-      alert('서명을 해주세요.')
+      alert(t('approval.signTitle'))
       return
     }
 
@@ -76,7 +77,7 @@ export default function AdminRequestsPage() {
   const handleRejectOpen = (requestId: string) => {
     const req = requests.find((r) => r.id === requestId)
     if (req && req.requestedBy.uid === user?.uid) {
-      alert('본인이 신청한 건은 반려할 수 없습니다.')
+      alert(t('approval.selfRejectError'))
       return
     }
     setRejectionReason('')
@@ -86,7 +87,7 @@ export default function AdminRequestsPage() {
   const handleRejectConfirm = async () => {
     if (!user || !appUser || !rejectModalRequestId) return
     if (!rejectionReason.trim()) {
-      alert('반려 사유를 입력해주세요.')
+      alert(t('approval.rejectDescription'))
       return
     }
 
@@ -114,13 +115,13 @@ export default function AdminRequestsPage() {
 
   return (
     <Layout>
-      <PageHeader title="신청 관리" />
+      <PageHeader title={t('nav.adminRequests')} />
 
       <div className="flex flex-wrap gap-2 mb-6">
         {(['all', 'pending', 'approved', 'settled', 'rejected'] as const).map((f) => (
           <button key={f} onClick={() => setFilter(f)}
             className={`px-3 py-1 rounded text-sm ${filter === f ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}>
-            {STATUS_FILTER_LABELS[f]}
+            {t(`status.${f}`, f)}
           </button>
         ))}
       </div>
@@ -136,12 +137,12 @@ export default function AdminRequestsPage() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b">
                     <tr>
-                      <th className="text-left px-4 py-3 font-medium text-gray-600">날짜</th>
-                      <th className="text-left px-4 py-3 font-medium text-gray-600">신청자</th>
-                      <th className="text-left px-4 py-3 font-medium text-gray-600">위원회</th>
-                      <th className="text-right px-4 py-3 font-medium text-gray-600">합계</th>
-                      <th className="text-center px-4 py-3 font-medium text-gray-600">상태</th>
-                      <th className="text-center px-4 py-3 font-medium text-gray-600">액션</th>
+                      <th className="text-left px-4 py-3 font-medium text-gray-600">{t('field.date')}</th>
+                      <th className="text-left px-4 py-3 font-medium text-gray-600">{t('field.payee')}</th>
+                      <th className="text-left px-4 py-3 font-medium text-gray-600">{t('field.committee')}</th>
+                      <th className="text-right px-4 py-3 font-medium text-gray-600">{t('field.totalAmount')}</th>
+                      <th className="text-center px-4 py-3 font-medium text-gray-600">{t('status.pending')}</th>
+                      <th className="text-center px-4 py-3 font-medium text-gray-600"></th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -151,16 +152,16 @@ export default function AdminRequestsPage() {
                           <Link to={`/request/${req.id}`} className="text-blue-600 hover:underline">{req.date}</Link>
                         </td>
                         <td className="px-4 py-3">{req.payee}</td>
-                        <td className="px-4 py-3">{COMMITTEE_LABELS_SHORT[req.committee]}</td>
+                        <td className="px-4 py-3">{t(`committee.${req.committee}Short`)}</td>
                         <td className="px-4 py-3 text-right">₩{req.totalAmount.toLocaleString()}</td>
                         <td className="px-4 py-3 text-center"><StatusBadge status={req.status} /></td>
                         <td className="px-4 py-3 text-center">
                           {req.status === 'pending' && (
                             <div className="flex gap-1 justify-center">
                               <button onClick={() => handleApproveWithSign(req.id)}
-                                className="px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700">승인</button>
+                                className="px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700">{t('approval.approve')}</button>
                               <button onClick={() => handleRejectOpen(req.id)}
-                                className="px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700">반려</button>
+                                className="px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700">{t('approval.reject')}</button>
                             </div>
                           )}
                         </td>
@@ -182,7 +183,7 @@ export default function AdminRequestsPage() {
                 </div>
                 <div className="flex items-center justify-between text-sm text-gray-500 mb-1">
                   <span>{req.date}</span>
-                  <span>{COMMITTEE_LABELS_SHORT[req.committee]}</span>
+                  <span>{t(`committee.${req.committee}Short`)}</span>
                 </div>
                 <div className="text-right font-semibold text-gray-900 mb-3">
                   ₩{req.totalAmount.toLocaleString()}
@@ -190,9 +191,9 @@ export default function AdminRequestsPage() {
                 {req.status === 'pending' && (
                   <div className="flex gap-2" onClick={(e) => e.preventDefault()}>
                     <button onClick={() => handleApproveWithSign(req.id)}
-                      className="flex-1 px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700">승인</button>
+                      className="flex-1 px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700">{t('approval.approve')}</button>
                     <button onClick={() => handleRejectOpen(req.id)}
-                      className="flex-1 px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700">반려</button>
+                      className="flex-1 px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700">{t('approval.reject')}</button>
                   </div>
                 )}
               </Link>
@@ -202,8 +203,8 @@ export default function AdminRequestsPage() {
       )}
 
       {/* 서명 승인 모달 */}
-      <Modal open={!!signModalRequestId} onClose={() => setSignModalRequestId(null)} title="승인 서명">
-        <p className="text-sm text-gray-500 mb-4">승인을 위해 아래에 서명해주세요.</p>
+      <Modal open={!!signModalRequestId} onClose={() => setSignModalRequestId(null)} title={t('approval.signTitle')}>
+        <p className="text-sm text-gray-500 mb-4">{t('approval.signDescription')}</p>
 
         {appUser?.signature && (
           <div className="mb-3">
@@ -212,11 +213,11 @@ export default function AdminRequestsPage() {
                 checked={signatureData === appUser.signature}
                 onChange={(e) => setSignatureData(e.target.checked ? appUser.signature : '')}
               />
-              <span className="text-sm text-gray-600">저장된 서명 사용</span>
+              <span className="text-sm text-gray-600">{t('approval.useSavedSignature')}</span>
             </label>
             {signatureData === appUser.signature && (
               <div className="mt-2 border border-gray-200 rounded p-2 bg-gray-50">
-                <img src={appUser.signature} alt="저장된 서명" className="max-h-24 mx-auto" />
+                <img src={appUser.signature} alt="Saved signature" className="max-h-24 mx-auto" />
               </div>
             )}
           </div>
@@ -232,34 +233,34 @@ export default function AdminRequestsPage() {
         <div className="flex gap-3 justify-end mt-4">
           <button onClick={() => setSignModalRequestId(null)}
             className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-50">
-            취소
+            {t('common.cancel')}
           </button>
           <button onClick={handleConfirmApproval} disabled={!signatureData}
             className="px-4 py-2 text-sm text-white bg-green-600 rounded hover:bg-green-700 disabled:bg-gray-400">
-            서명하고 승인
+            {t('approval.signAndApprove')}
           </button>
         </div>
       </Modal>
 
       {/* 반려 사유 모달 */}
-      <Modal open={!!rejectModalRequestId} onClose={() => setRejectModalRequestId(null)} title="반려 사유">
-        <p className="text-sm text-gray-500 mb-4">반려 사유를 입력해주세요. 신청자가 확인할 수 있습니다.</p>
+      <Modal open={!!rejectModalRequestId} onClose={() => setRejectModalRequestId(null)} title={t('approval.rejectTitle')}>
+        <p className="text-sm text-gray-500 mb-4">{t('approval.rejectDescription')}</p>
         <textarea
           value={rejectionReason}
           onChange={(e) => setRejectionReason(e.target.value)}
           rows={4}
-          placeholder="반려 사유를 입력하세요..."
+          placeholder={t('approval.rejectPlaceholder')}
           className="w-full border border-gray-300 rounded px-3 py-2 text-sm mb-4"
           autoFocus
         />
         <div className="flex gap-3 justify-end">
           <button onClick={() => setRejectModalRequestId(null)}
             className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-50">
-            취소
+            {t('common.cancel')}
           </button>
           <button onClick={handleRejectConfirm} disabled={!rejectionReason.trim()}
             className="px-4 py-2 text-sm text-white bg-red-600 rounded hover:bg-red-700 disabled:bg-gray-400">
-            반려
+            {t('approval.reject')}
           </button>
         </div>
       </Modal>

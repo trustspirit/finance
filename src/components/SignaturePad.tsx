@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 
 interface Props {
   width?: number
@@ -8,6 +9,7 @@ interface Props {
 }
 
 export default function SignaturePad({ width = 400, height = 150, initialData, onChange }: Props) {
+  const { t } = useTranslation()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [isDrawing, setIsDrawing] = useState(false)
   const [isEmpty, setIsEmpty] = useState(!initialData)
@@ -122,9 +124,9 @@ export default function SignaturePad({ width = 400, height = 150, initialData, o
       <div className="flex items-center gap-3 mt-2">
         <button type="button" onClick={clear}
           className="text-xs text-gray-500 hover:text-gray-700">
-          지우기
+          {t('common.delete')}
         </button>
-        {isEmpty && <span className="text-xs text-gray-400">위 영역에 서명해주세요</span>}
+        {isEmpty && <span className="text-xs text-gray-400">{t('approval.signDescription')}</span>}
       </div>
     </div>
   )

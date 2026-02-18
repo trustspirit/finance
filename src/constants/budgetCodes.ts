@@ -1,46 +1,41 @@
-export const BUDGET_CODE_LABELS: Record<number, string> = {
-  5862: 'Lodging/Facilities',
-  5110: 'Transportation',
-  5400: 'Food/Insurance/Admin',
-  5200: 'Materials/Supplies',
-  4500: 'Participation Fee',
-}
-
 export const UNIQUE_BUDGET_CODES = [5862, 5110, 5400, 5200, 4500] as const
+
+// i18n key for budget code labels: t(`budgetCode.${code}`)
+// i18n key for budget code item descriptions: t(`budgetCode.items.${descKey}`)
 
 export interface BudgetCodeOption {
   code: number
   category: string
-  description: string
+  descKey: string
 }
 
 export const BUDGET_CODES: BudgetCodeOption[] = [
-  { code: 5862, category: 'Lodging', description: 'Lodging' },
-  { code: 5862, category: 'Lodging', description: 'Other Lodging Related Expenses' },
-  { code: 5862, category: 'Facilities', description: 'Facility Rental' },
-  { code: 5862, category: 'Facilities', description: 'Equipment Rental' },
-  { code: 5862, category: 'Facilities', description: 'Other Facilities Related Expenses' },
-  { code: 5110, category: 'Transportation', description: 'Transportation for Participants' },
-  { code: 5110, category: 'Transportation', description: 'Transportation for Committee Members' },
-  { code: 5110, category: 'Transportation', description: 'Other Transportation Related Expenses' },
-  { code: 5400, category: 'Meals', description: 'Meals' },
-  { code: 5400, category: 'Meals', description: 'Other Meals' },
-  { code: 5400, category: 'Insurance', description: 'Participants Insurance' },
-  { code: 5400, category: 'Insurance', description: 'Volunteers Insurance' },
-  { code: 5400, category: 'Insurance', description: 'Other Insurance Expenses' },
-  { code: 5200, category: 'Activity', description: 'Activity Materials' },
-  { code: 5200, category: 'Activity', description: 'Event Materials' },
-  { code: 5400, category: 'Activity', description: 'Refreshments' },
-  { code: 5200, category: 'Activity', description: 'Stationery' },
-  { code: 5200, category: 'Activity', description: 'T-Shirts' },
-  { code: 5400, category: 'Activity', description: 'Other Activity & Program Expenses' },
-  { code: 5400, category: 'Administration', description: 'Promotion Expenses' },
-  { code: 5200, category: 'Administration', description: 'Posters and Post Cards' },
-  { code: 5200, category: 'Administration', description: 'Pamphlets' },
-  { code: 5400, category: 'Administration', description: 'Communication Expenses' },
-  { code: 5400, category: 'Administration', description: 'Meeting Refreshments & Meals' },
-  { code: 5110, category: 'Administration', description: 'Meeting Lodging' },
-  { code: 5400, category: 'Administration', description: 'Other Preparation Expenses' },
-  { code: 5400, category: 'Administration', description: 'Other Administrative Expenses' },
-  { code: 4500, category: 'Other', description: 'Participation Fee' },
+  { code: 5862, category: 'Lodging', descKey: 'lodging' },
+  { code: 5862, category: 'Lodging', descKey: 'otherLodging' },
+  { code: 5862, category: 'Facilities', descKey: 'facilityRental' },
+  { code: 5862, category: 'Facilities', descKey: 'equipmentRental' },
+  { code: 5862, category: 'Facilities', descKey: 'otherFacilities' },
+  { code: 5110, category: 'Transportation', descKey: 'transportParticipants' },
+  { code: 5110, category: 'Transportation', descKey: 'transportCommittee' },
+  { code: 5110, category: 'Transportation', descKey: 'otherTransport' },
+  { code: 5400, category: 'Meals', descKey: 'meals' },
+  { code: 5400, category: 'Meals', descKey: 'otherMeals' },
+  { code: 5400, category: 'Insurance', descKey: 'insuranceParticipants' },
+  { code: 5400, category: 'Insurance', descKey: 'insuranceVolunteers' },
+  { code: 5400, category: 'Insurance', descKey: 'otherInsurance' },
+  { code: 5200, category: 'Activity', descKey: 'activityMaterials' },
+  { code: 5200, category: 'Activity', descKey: 'eventMaterials' },
+  { code: 5400, category: 'Activity', descKey: 'refreshments' },
+  { code: 5200, category: 'Activity', descKey: 'stationery' },
+  { code: 5200, category: 'Activity', descKey: 'tshirts' },
+  { code: 5400, category: 'Activity', descKey: 'otherActivity' },
+  { code: 5400, category: 'Administration', descKey: 'promotion' },
+  { code: 5200, category: 'Administration', descKey: 'posters' },
+  { code: 5200, category: 'Administration', descKey: 'pamphlets' },
+  { code: 5400, category: 'Administration', descKey: 'communication' },
+  { code: 5400, category: 'Administration', descKey: 'meetingMeals' },
+  { code: 5110, category: 'Administration', descKey: 'meetingLodging' },
+  { code: 5400, category: 'Administration', descKey: 'otherPreparation' },
+  { code: 5400, category: 'Administration', descKey: 'otherAdmin' },
+  { code: 4500, category: 'Other', descKey: 'participationFee' },
 ]

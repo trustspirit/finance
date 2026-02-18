@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import Modal from './Modal'
 
 interface SummaryItem {
@@ -18,12 +19,18 @@ interface Props {
 }
 
 export default function ConfirmModal({
-  open, onClose, onConfirm, title = '제출 확인',
-  items, totalAmount, totalLabel = '항목 총액',
-  confirmLabel = '확인 및 제출', cancelLabel = '취소',
+  open, onClose, onConfirm, title,
+  items, totalAmount, totalLabel,
+  confirmLabel, cancelLabel,
 }: Props) {
+  const { t } = useTranslation()
+  const resolvedTitle = title ?? t('form.confirmTitle')
+  const resolvedTotalLabel = totalLabel ?? t('field.totalAmount')
+  const resolvedConfirm = confirmLabel ?? t('form.confirmSubmit')
+  const resolvedCancel = cancelLabel ?? t('common.cancel')
+
   return (
-    <Modal open={open} onClose={onClose} title={title}>
+    <Modal open={open} onClose={onClose} title={resolvedTitle}>
       <div className="text-sm space-y-2 mb-4">
         {items.map((item, i) => (
           <div key={i} className="flex justify-between">
@@ -36,11 +43,11 @@ export default function ConfirmModal({
       {totalAmount !== undefined && (
         <div className="bg-blue-50 border border-blue-200 rounded p-3 mb-4">
           <div className="flex justify-between text-sm font-medium">
-            <span>{totalLabel}</span>
+            <span>{resolvedTotalLabel}</span>
             <span>₩{totalAmount.toLocaleString()}</span>
           </div>
           <p className="text-xs text-blue-600 mt-2">
-            영수증 금액과 {totalLabel}(₩{totalAmount.toLocaleString()})이 일치하는지 확인해주세요.
+            {t('form.totalAmountCheck', { amount: totalAmount.toLocaleString() })}
           </p>
         </div>
       )}
@@ -48,11 +55,11 @@ export default function ConfirmModal({
       <div className="flex gap-3 justify-end">
         <button onClick={onClose}
           className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-50">
-          {cancelLabel}
+          {resolvedCancel}
         </button>
         <button onClick={onConfirm}
           className="px-4 py-2 text-sm text-white bg-blue-600 rounded hover:bg-blue-700">
-          {confirmLabel}
+          {resolvedConfirm}
         </button>
       </div>
     </Modal>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { collection, query, where, orderBy, getDocs } from 'firebase/firestore'
 import { db } from '../lib/firebase'
@@ -11,6 +12,7 @@ import EmptyState from '../components/EmptyState'
 import PageHeader from '../components/PageHeader'
 
 export default function MyRequestsPage() {
+  const { t } = useTranslation()
   const { user } = useAuth()
   const [requests, setRequests] = useState<PaymentRequest[]>([])
   const [loading, setLoading] = useState(true)
@@ -30,7 +32,7 @@ export default function MyRequestsPage() {
         setRequests(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() } as PaymentRequest)))
       } catch (err) {
         console.error('Failed to fetch requests:', err)
-        setError('신청 내역을 불러오는 중 오류가 발생했습니다.')
+        setError(t('myRequests.fetchError'))
       } finally {
         setLoading(false)
       }
@@ -41,8 +43,8 @@ export default function MyRequestsPage() {
   return (
     <Layout>
       <PageHeader
-        title="내 신청 내역"
-        action={{ label: '새 신청서 작성', to: '/request/new' }}
+        title={t('myRequests.title')}
+        action={{ label: t('myRequests.newRequest'), to: '/request/new' }}
       />
       {loading ? (
         <Spinner />
@@ -50,9 +52,9 @@ export default function MyRequestsPage() {
         <p className="text-red-500 text-sm">{error}</p>
       ) : requests.length === 0 ? (
         <EmptyState
-          title="신청 내역이 없습니다"
-          description="새 신청서를 작성해보세요"
-          actionLabel="새 신청서 작성"
+          title={t('myRequests.noRequests')}
+          description={t('myRequests.noRequestsHint')}
+          actionLabel={t('myRequests.newRequest')}
           actionTo="/request/new"
         />
       ) : (
@@ -63,11 +65,11 @@ export default function MyRequestsPage() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b">
                   <tr>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">날짜</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">세션</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">항목수</th>
-                    <th className="text-right px-4 py-3 font-medium text-gray-600">합계</th>
-                    <th className="text-center px-4 py-3 font-medium text-gray-600">상태</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">{t('field.date')}</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">{t('field.session')}</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">{t('field.items')}</th>
+                    <th className="text-right px-4 py-3 font-medium text-gray-600">{t('field.totalAmount')}</th>
+                    <th className="text-center px-4 py-3 font-medium text-gray-600">{t('status.pending')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -77,7 +79,7 @@ export default function MyRequestsPage() {
                         <Link to={`/request/${req.id}`} className="text-blue-600 hover:underline">{req.date}</Link>
                       </td>
                       <td className="px-4 py-3">{req.session}</td>
-                      <td className="px-4 py-3">{req.items.length}건</td>
+                      <td className="px-4 py-3">{t('form.itemCount', { count: req.items.length })}</td>
                       <td className="px-4 py-3 text-right">₩{req.totalAmount.toLocaleString()}</td>
                       <td className="px-4 py-3 text-center"><StatusBadge status={req.status} /></td>
                     </tr>
@@ -97,7 +99,7 @@ export default function MyRequestsPage() {
                 </div>
                 <div className="text-sm text-gray-600 mb-1">{req.session}</div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500">{req.items.length}건</span>
+                  <span className="text-gray-500">{t('form.itemCount', { count: req.items.length })}</span>
                   <span className="font-medium">₩{req.totalAmount.toLocaleString()}</span>
                 </div>
               </Link>

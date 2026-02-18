@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { Receipt } from '../types'
 
 interface Props {
@@ -5,12 +6,15 @@ interface Props {
   title?: string
 }
 
-export default function ReceiptGallery({ receipts, title = '영수증' }: Props) {
+export default function ReceiptGallery({ receipts, title }: Props) {
+  const { t } = useTranslation()
   if (receipts.length === 0) return null
 
   return (
     <div className="mb-6">
-      <h3 className="text-sm font-medium text-gray-700 mb-3">{title} ({receipts.length}개)</h3>
+      <h3 className="text-sm font-medium text-gray-700 mb-3">
+        {title ?? t('field.receipts')} ({receipts.length})
+      </h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {receipts.map((r, i) => (
           <div key={i} className="border border-gray-200 rounded-lg overflow-hidden">

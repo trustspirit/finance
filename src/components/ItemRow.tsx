@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { RequestItem } from '../types'
 import { BUDGET_CODES } from '../constants/budgetCodes'
 
@@ -10,12 +11,14 @@ interface Props {
 }
 
 export default function ItemRow({ index, item, onChange, onRemove, canRemove }: Props) {
+  const { t } = useTranslation()
+
   return (
     <div className="flex gap-2 items-start">
       <span className="text-sm text-gray-400 pt-2 w-6">{index + 1}</span>
       <input
         type="text"
-        placeholder="설명 (Description)"
+        placeholder={t('field.items')}
         value={item.description}
         onChange={(e) => onChange(index, { ...item, description: e.target.value })}
         className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
@@ -28,16 +31,16 @@ export default function ItemRow({ index, item, onChange, onRemove, canRemove }: 
         }}
         className="w-64 border border-gray-300 rounded px-3 py-2 text-sm"
       >
-        <option value="">예산 코드 선택</option>
+        <option value="">{t('budgetCode.select')}</option>
         {BUDGET_CODES.map((bc, i) => (
           <option key={i} value={bc.code}>
-            {bc.code} - {bc.description}
+            {bc.code} - {t(`budgetCode.items.${bc.descKey}`)}
           </option>
         ))}
       </select>
       <input
         type="number"
-        placeholder="금액"
+        placeholder={t('field.totalAmount')}
         value={item.amount || ''}
         onChange={(e) => onChange(index, { ...item, amount: parseInt(e.target.value) || 0 })}
         className="w-32 border border-gray-300 rounded px-3 py-2 text-sm text-right"

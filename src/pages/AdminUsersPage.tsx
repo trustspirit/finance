@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import { useAuth } from '../contexts/AuthContext'
@@ -8,18 +9,19 @@ import Spinner from '../components/Spinner'
 import PageHeader from '../components/PageHeader'
 import EmptyState from '../components/EmptyState'
 
-const ROLE_LABELS: Record<UserRole, string> = {
-  user: '일반 사용자',
-  approver: '승인자',
-  admin: '관리자',
-}
-
 export default function AdminUsersPage() {
+  const { t } = useTranslation()
   const { appUser: currentUser } = useAuth()
   const [users, setUsers] = useState<AppUser[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [successUid, setSuccessUid] = useState<string | null>(null)
+
+  const ROLE_LABELS: Record<UserRole, string> = {
+    user: t('role.user'),
+    approver: t('role.approver'),
+    admin: t('role.admin'),
+  }
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -29,7 +31,7 @@ export default function AdminUsersPage() {
         setUsers(snap.docs.map((d) => d.data() as AppUser))
       } catch (err) {
         console.error('Failed to fetch users:', err)
-        setError('사용자 목록을 불러오는 데 실패했습니다.')
+        setError(t('users.noUsers'))
       } finally {
         setLoading(false)
       }
@@ -39,10 +41,10 @@ export default function AdminUsersPage() {
 
   const handleRoleChange = async (uid: string, newRole: UserRole) => {
     if (uid === currentUser?.uid) {
-      alert('본인의 권한은 변경할 수 없습니다.')
+      alert(t('users.selfChangeError'))
       return
     }
-    const confirmed = window.confirm(`권한을 "${ROLE_LABELS[newRole]}"(으)로 변경하시겠습니까?`)
+    const confirmed = window.confirm(t('users.roleChangeConfirm', { role: ROLE_LABELS[newRole] }))
     if (!confirmed) return
 
     try {
@@ -52,19 +54,19 @@ export default function AdminUsersPage() {
       setTimeout(() => setSuccessUid(null), 2000)
     } catch (error) {
       console.error('Failed to update role:', error)
-      alert('권한 변경에 실패했습니다.')
+      alert(t('users.roleChangeFailed'))
     }
   }
 
   return (
     <Layout>
-      <PageHeader title="사용자 관리" />
+      <PageHeader title={t('users.title')} />
       {loading ? (
         <Spinner />
       ) : error ? (
         <p className="text-red-500 text-sm">{error}</p>
       ) : users.length === 0 ? (
-        <EmptyState title="등록된 사용자가 없습니다" />
+        <EmptyState title={t('users.noUsers')} />
       ) : (
         <>
           {/* Desktop table view */}
@@ -74,10 +76,10 @@ export default function AdminUsersPage() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b">
                     <tr>
-                      <th className="text-left px-4 py-3 font-medium text-gray-600">이름</th>
-                      <th className="text-left px-4 py-3 font-medium text-gray-600">이메일</th>
-                      <th className="text-left px-4 py-3 font-medium text-gray-600">전화번호</th>
-                      <th className="text-center px-4 py-3 font-medium text-gray-600">권한</th>
+                      <th className="text-left px-4 py-3 font-medium text-gray-600">{t('field.displayName')}</th>
+                      <th className="text-left px-4 py-3 font-medium text-gray-600">{t('field.email')}</th>
+                      <th className="text-left px-4 py-3 font-medium text-gray-600">{t('field.phone')}</th>
+                      <th className="text-center px-4 py-3 font-medium text-gray-600">{t('role.user')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -89,7 +91,7 @@ export default function AdminUsersPage() {
                             <span className="ml-1 text-xs text-gray-400">({u.name})</span>
                           )}
                           {u.uid === currentUser?.uid && (
-                            <span className="ml-2 text-xs text-blue-600">(나)</span>
+                            <span className="ml-2 text-xs text-blue-600">{t('users.me')}</span>
                           )}
                         </td>
                         <td className="px-4 py-3 text-gray-500">{u.email}</td>
@@ -103,12 +105,12 @@ export default function AdminUsersPage() {
                               u.uid === currentUser?.uid ? 'bg-gray-100 text-gray-400' : ''
                             }`}
                           >
-                            <option value="user">일반 사용자</option>
-                            <option value="approver">승인자</option>
-                            <option value="admin">관리자</option>
+                            <option value="user">{t('role.user')}</option>
+                            <option value="approver">{t('role.approver')}</option>
+                            <option value="admin">{t('role.admin')}</option>
                           </select>
                           {successUid === u.uid && (
-                            <p className="text-xs text-green-600 mt-1">권한이 변경되었습니다</p>
+                            <p className="text-xs text-green-600 mt-1">{t('users.roleChanged')}</p>
                           )}
                         </td>
                       </tr>
@@ -130,7 +132,7 @@ export default function AdminUsersPage() {
                       <span className="ml-1 text-xs text-gray-400">({u.name})</span>
                     )}
                     {u.uid === currentUser?.uid && (
-                      <span className="ml-2 text-xs text-blue-600">(나)</span>
+                      <span className="ml-2 text-xs text-blue-600">{t('users.me')}</span>
                     )}
                   </p>
                   <p className="text-sm text-gray-500 mt-1">{u.email}</p>
@@ -145,12 +147,12 @@ export default function AdminUsersPage() {
                       u.uid === currentUser?.uid ? 'bg-gray-100 text-gray-400' : ''
                     }`}
                   >
-                    <option value="user">일반 사용자</option>
-                    <option value="approver">승인자</option>
-                    <option value="admin">관리자</option>
+                    <option value="user">{t('role.user')}</option>
+                    <option value="approver">{t('role.approver')}</option>
+                    <option value="admin">{t('role.admin')}</option>
                   </select>
                   {successUid === u.uid && (
-                    <p className="text-xs text-green-600 mt-1">권한이 변경되었습니다</p>
+                    <p className="text-xs text-green-600 mt-1">{t('users.roleChanged')}</p>
                   )}
                 </div>
               </div>

@@ -12,8 +12,8 @@ import ErrorAlert from '../components/ErrorAlert'
 import FileUpload from '../components/FileUpload'
 import CommitteeSelect from '../components/CommitteeSelect'
 import ConfirmModal from '../components/ConfirmModal'
+import { useTranslation } from 'react-i18next'
 import { formatPhone, fileToBase64 } from '../lib/utils'
-import { COMMITTEE_LABELS } from '../constants/labels'
 
 const DRAFT_KEY = 'request-form-draft'
 const emptyItem = (): RequestItem => ({ description: '', budgetCode: 0, amount: 0 })
@@ -49,6 +49,7 @@ function clearDraft() {
 }
 
 export default function RequestFormPage() {
+  const { t } = useTranslation()
   const { user, appUser } = useAuth()
   const navigate = useNavigate()
 
@@ -141,16 +142,16 @@ export default function RequestFormPage() {
 
   const validate = (): string[] => {
     const errs: string[] = []
-    if (!payee.trim()) errs.push('신청자를 입력해주세요.')
-    if (!phone.trim()) errs.push('전화번호를 입력해주세요.')
-    if (!bankName.trim()) errs.push('은행명을 입력해주세요.')
-    if (!bankAccount.trim()) errs.push('계좌번호를 입력해주세요.')
-    if (!date) errs.push('날짜를 선택해주세요.')
-    if (validItems.length === 0) errs.push('최소 1개 이상의 항목을 입력해주세요. (설명과 금액 필수)')
+    if (!payee.trim()) errs.push(t('validation.payeeRequired'))
+    if (!phone.trim()) errs.push(t('validation.phoneRequired'))
+    if (!bankName.trim()) errs.push(t('validation.bankRequired'))
+    if (!bankAccount.trim()) errs.push(t('validation.bankAccountRequired'))
+    if (!date) errs.push(t('validation.dateRequired'))
+    if (validItems.length === 0) errs.push(t('validation.itemsRequired'))
     const missingBudgetCode = validItems.some((item) => !item.budgetCode)
-    if (missingBudgetCode) errs.push('모든 항목의 예산 코드를 선택해주세요.')
-    if (files.length === 0) errs.push('영수증 파일을 첨부해주세요.')
-    if (!appUser?.bankBookDriveUrl) errs.push('통장사본이 등록되지 않았습니다. 설정에서 통장사본을 업로드해주세요.')
+    if (missingBudgetCode) errs.push(t('validation.budgetCodeRequired'))
+    if (files.length === 0) errs.push(t('validation.receiptsRequired'))
+    if (!appUser?.bankBookDriveUrl) errs.push(t('validation.bankBookRequired'))
     return errs
   }
 
@@ -223,7 +224,7 @@ export default function RequestFormPage() {
       navigate('/my-requests')
     } catch (err) {
       console.error(err)
-      alert('제출에 실패했습니다. 다시 시도해주세요.')
+      alert(t('form.submitFailed'))
     } finally {
       setSubmitting(false)
     }
@@ -235,7 +236,7 @@ export default function RequestFormPage() {
       {showDraftBanner && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4 max-w-4xl mx-auto flex items-center justify-between">
           <p className="text-sm text-blue-700">
-            이전에 작성 중이던 신청서가 복원되었습니다.
+            {t('form.draftRestored')}
             {draft?.savedAt && (
               <span className="text-blue-500 ml-1">
                 ({new Date(draft.savedAt).toLocaleString('ko-KR')})
@@ -244,48 +245,48 @@ export default function RequestFormPage() {
           </p>
           <button onClick={handleClearDraft}
             className="text-xs text-blue-600 hover:text-blue-800 whitespace-nowrap ml-3">
-            초기화
+            {t('form.draftClear')}
           </button>
         </div>
       )}
 
       <form onSubmit={handlePreSubmit} className="bg-white rounded-lg shadow p-4 sm:p-6 max-w-4xl mx-auto">
-        <h2 className="text-xl font-bold mb-1">지불 / 환불 신청서</h2>
-        <p className="text-sm text-gray-500 mb-6">Payment / Reimbursement Request Form</p>
+        <h2 className="text-xl font-bold mb-1">{t('form.title')}</h2>
+        <p className="text-sm text-gray-500 mb-6">{t('form.subtitle')}</p>
 
-        <ErrorAlert errors={errors} title="다음 항목을 확인해주세요" />
+        <ErrorAlert errors={errors} title={t('form.checkErrors')} />
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              신청자 (Payee) <span className="text-red-500">*</span>
+              {t('field.payee')} <span className="text-red-500">*</span>
             </label>
             <input type="text" value={payee} onChange={(e) => setPayee(e.target.value)}
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              날짜 (Date) <span className="text-red-500">*</span>
+              {t('field.date')} <span className="text-red-500">*</span>
             </label>
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              전화번호 (Phone) <span className="text-red-500">*</span>
+              {t('field.phone')} <span className="text-red-500">*</span>
             </label>
             <input type="tel" value={phone} onChange={(e) => setPhone(formatPhone(e.target.value))}
               placeholder="010-0000-0000"
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">세션 (Session)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('field.session')}</label>
             <input type="text" readOnly value={session}
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-gray-100" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              은행 (Bank) <span className="text-red-500">*</span>
+              {t('field.bank')} <span className="text-red-500">*</span>
             </label>
             <input type="text" value={bankName} onChange={(e) => setBankName(e.target.value)}
               placeholder="예: 국민은행"
@@ -293,7 +294,7 @@ export default function RequestFormPage() {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              계좌번호 (Account) <span className="text-red-500">*</span>
+              {t('field.bankAccount')} <span className="text-red-500">*</span>
             </label>
             <input type="text" value={bankAccount} onChange={(e) => setBankAccount(e.target.value)}
               placeholder="예: 123-456-789012"
@@ -307,11 +308,11 @@ export default function RequestFormPage() {
         <div className="mb-6">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-medium text-gray-700">
-              항목 (Items) <span className="text-red-500">*</span>
+              {t('field.items')} <span className="text-red-500">*</span>
             </h3>
             <button type="button" onClick={addItem} disabled={items.length >= 10}
               className="text-sm text-blue-600 hover:text-blue-800 disabled:text-gray-400">
-              + 항목 추가
+              {t('form.addItem')}
             </button>
           </div>
           <div className="space-y-2">
@@ -321,14 +322,14 @@ export default function RequestFormPage() {
             ))}
           </div>
           <div className="flex justify-end mt-3 pt-3 border-t">
-            <span className="text-sm font-medium">합계: ₩{totalAmount.toLocaleString()}</span>
+            <span className="text-sm font-medium">{t('field.totalAmount')}: ₩{totalAmount.toLocaleString()}</span>
           </div>
         </div>
 
         <FileUpload files={files} onFilesChange={setFiles} />
 
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-1">비고 (Comments)</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{t('field.comments')}</label>
           <textarea value={comments} onChange={(e) => setComments(e.target.value)}
             rows={3} className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
         </div>
@@ -336,7 +337,7 @@ export default function RequestFormPage() {
         <div className="flex justify-end">
           <button type="submit" disabled={submitting}
             className="bg-blue-600 text-white px-6 py-2 rounded text-sm font-medium hover:bg-blue-700 disabled:bg-gray-400">
-            {submitting ? '제출 중...' : '신청서 제출'}
+            {submitting ? t('common.submitting') : t('form.submitRequest')}
           </button>
         </div>
       </form>
@@ -345,35 +346,35 @@ export default function RequestFormPage() {
         open={showConfirm}
         onClose={() => setShowConfirm(false)}
         onConfirm={handleSubmit}
-        title="신청서 제출 확인"
+        title={t('form.confirmTitle')}
         items={[
-          { label: '신청자', value: payee },
-          { label: '날짜', value: date },
-          { label: '은행 / 계좌', value: `${bankName} ${bankAccount}` },
-          { label: '위원회', value: COMMITTEE_LABELS[committee] },
-          { label: '항목 수', value: `${validItems.length}건` },
-          { label: '영수증', value: `${files.length}개 파일` },
+          { label: t('field.payee'), value: payee },
+          { label: t('field.date'), value: date },
+          { label: t('field.bankAndAccount'), value: `${bankName} ${bankAccount}` },
+          { label: t('field.committee'), value: t(`committee.${committee}`) },
+          { label: t('field.items'), value: t('form.itemCount', { count: validItems.length }) },
+          { label: t('field.receipts'), value: t('form.fileCount', { count: files.length }) },
         ]}
         totalAmount={totalAmount}
-        confirmLabel="확인 및 제출"
+        confirmLabel={t('form.confirmSubmit')}
       />
 
       {/* 페이지 이동 확인 모달 */}
       {blocker.state === 'blocked' && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-sm mx-4">
-            <h3 className="text-lg font-bold mb-2">작성 중인 신청서가 있습니다</h3>
+            <h3 className="text-lg font-bold mb-2">{t('form.blockerTitle')}</h3>
             <p className="text-sm text-gray-500 mb-4">
-              작성 내용이 자동 저장되어 있습니다. 다시 돌아오면 이어서 작성할 수 있습니다.
+              {t('form.blockerMessage')}
             </p>
             <div className="flex gap-3 justify-end">
               <button onClick={() => blocker.reset?.()}
                 className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-50">
-                계속 작성
+                {t('form.continueEditing')}
               </button>
               <button onClick={() => blocker.proceed?.()}
                 className="px-4 py-2 text-sm text-white bg-blue-600 rounded hover:bg-blue-700">
-                페이지 이동
+                {t('form.leavePage')}
               </button>
             </div>
           </div>

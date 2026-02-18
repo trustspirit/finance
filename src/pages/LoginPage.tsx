@@ -1,13 +1,15 @@
+import { useTranslation } from 'react-i18next'
 import { useAuth } from '../contexts/AuthContext'
 import { Navigate } from 'react-router-dom'
 import Spinner from '../components/Spinner'
 
 export default function LoginPage() {
+  const { t } = useTranslation()
   const { user, loading, signInWithGoogle } = useAuth()
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-screen bg-gray-50">
-      <Spinner text="로딩 중..." />
+      <Spinner text={t('auth.loading')} />
     </div>
   )
   if (user) return <Navigate to="/my-requests" replace />
@@ -21,8 +23,8 @@ export default function LoginPage() {
               d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
         </div>
-        <h1 className="text-2xl font-bold mb-1">지불 / 환불 신청서</h1>
-        <p className="text-gray-400 text-sm mb-8">Payment / Reimbursement Request</p>
+        <h1 className="text-2xl font-bold mb-1">{t('auth.loginTitle')}</h1>
+        <p className="text-gray-400 text-sm mb-8">{t('auth.loginSubtitle')}</p>
         <button
           onClick={signInWithGoogle}
           className="w-full flex items-center justify-center gap-3 bg-white border border-gray-300 rounded-lg px-6 py-3 text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all active:scale-[0.98]"
@@ -33,7 +35,7 @@ export default function LoginPage() {
             <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
             <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
           </svg>
-          <span className="text-sm font-medium">Google 계정으로 로그인</span>
+          <span className="text-sm font-medium">{t('auth.googleLogin')}</span>
         </button>
       </div>
     </div>

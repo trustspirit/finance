@@ -13,10 +13,13 @@ import CommitteeSelect from '../components/CommitteeSelect'
 import ConfirmModal from '../components/ConfirmModal'
 import { formatPhone, fileToBase64 } from '../lib/utils'
 import ErrorAlert from '../components/ErrorAlert'
+import Spinner from '../components/Spinner'
+import { useTranslation } from 'react-i18next'
 
 const emptyItem = (): RequestItem => ({ description: '', budgetCode: 0, amount: 0 })
 
 export default function ResubmitPage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const { user, appUser } = useAuth()
   const navigate = useNavigate()
@@ -100,20 +103,20 @@ export default function ResubmitPage() {
 
   const validate = (): string[] => {
     const errs: string[] = []
-    if (!payee.trim()) errs.push('신청자를 입력해주세요.')
-    if (!phone.trim()) errs.push('전화번호를 입력해주세요.')
-    if (!bankName.trim()) errs.push('은행명을 입력해주세요.')
-    if (!bankAccount.trim()) errs.push('계좌번호를 입력해주세요.')
-    if (!date) errs.push('날짜를 선택해주세요.')
-    if (validItems.length === 0) errs.push('최소 1개 이상의 항목을 입력해주세요.')
+    if (!payee.trim()) errs.push(t('validation.payeeRequired'))
+    if (!phone.trim()) errs.push(t('validation.phoneRequired'))
+    if (!bankName.trim()) errs.push(t('validation.bankRequired'))
+    if (!bankAccount.trim()) errs.push(t('validation.bankAccountRequired'))
+    if (!date) errs.push(t('validation.dateRequired'))
+    if (validItems.length === 0) errs.push(t('validation.itemsRequired'))
     const missingBudgetCode = validItems.some((item) => !item.budgetCode)
-    if (missingBudgetCode) errs.push('모든 항목의 예산 코드를 선택해주세요.')
+    if (missingBudgetCode) errs.push(t('validation.budgetCodeRequired'))
     // receipts: use new files or keep original
     if (files.length === 0 && (!original?.receipts || original.receipts.length === 0)) {
-      errs.push('영수증 파일을 첨부해주세요.')
+      errs.push(t('validation.receiptsRequired'))
     }
-    if (!appUser?.bankBookDriveUrl) errs.push('통장사본이 등록되지 않았습니다.')
-    if (!hasChanges()) errs.push('원본 신청서에서 변경된 내용이 없습니다. 수정 후 재신청해주세요.')
+    if (!appUser?.bankBookDriveUrl) errs.push(t('validation.bankBookRequired'))
+    if (!hasChanges()) errs.push(t('validation.noChanges'))
     return errs
   }
 
@@ -182,60 +185,60 @@ export default function ResubmitPage() {
       navigate('/my-requests')
     } catch (err) {
       console.error(err)
-      alert('제출에 실패했습니다.')
+      alert(t('form.submitFailed'))
     } finally {
       setSubmitting(false)
     }
   }
 
-  if (loading) return <Layout><p className="text-gray-500">불러오는 중...</p></Layout>
-  if (!original) return <Layout><p className="text-gray-500">신청서를 찾을 수 없습니다.</p></Layout>
-  if (original.status !== 'rejected') return <Layout><p className="text-gray-500">반려된 신청서만 재신청할 수 있습니다.</p></Layout>
+  if (loading) return <Layout><Spinner /></Layout>
+  if (!original) return <Layout><p className="text-gray-500">{t('detail.notFound')}</p></Layout>
+  if (original.status !== 'rejected') return <Layout><p className="text-gray-500">{t('approval.rejectedOnly')}</p></Layout>
 
   return (
     <Layout>
       {/* 반려 사유 표시 */}
       {original.rejectionReason && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4 max-w-4xl mx-auto">
-          <h3 className="text-sm font-medium text-red-800 mb-1">반려 사유</h3>
+          <h3 className="text-sm font-medium text-red-800 mb-1">{t('approval.rejectionReason')}</h3>
           <p className="text-sm text-red-700">{original.rejectionReason}</p>
         </div>
       )}
 
       <form onSubmit={handlePreSubmit} className="bg-white rounded-lg shadow p-6 max-w-4xl mx-auto">
-        <h2 className="text-xl font-bold mb-1">수정 후 재신청</h2>
-        <p className="text-sm text-gray-500 mb-6">반려된 신청서를 수정하여 다시 제출합니다. 최소 1개 이상의 항목을 변경해야 합니다.</p>
+        <h2 className="text-xl font-bold mb-1">{t('approval.resubmitTitle')}</h2>
+        <p className="text-sm text-gray-500 mb-6">{t('approval.resubmitDescription')}</p>
 
         <ErrorAlert errors={errors} />
 
         <div className="grid grid-cols-2 gap-4 mb-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">신청자 <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('field.payee')} <span className="text-red-500">*</span></label>
             <input type="text" value={payee} onChange={(e) => setPayee(e.target.value)}
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">날짜 <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('field.date')} <span className="text-red-500">*</span></label>
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">전화번호 <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('field.phone')} <span className="text-red-500">*</span></label>
             <input type="tel" value={phone} onChange={(e) => setPhone(formatPhone(e.target.value))}
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">세션</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('field.session')}</label>
             <input type="text" readOnly value={session}
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-gray-100" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">은행 <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('field.bank')} <span className="text-red-500">*</span></label>
             <input type="text" value={bankName} onChange={(e) => setBankName(e.target.value)}
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">계좌번호 <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t('field.bankAccount')} <span className="text-red-500">*</span></label>
             <input type="text" value={bankAccount} onChange={(e) => setBankAccount(e.target.value)}
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
           </div>
@@ -246,9 +249,9 @@ export default function ResubmitPage() {
 
         <div className="mb-6">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-medium text-gray-700">항목 <span className="text-red-500">*</span></h3>
+            <h3 className="text-sm font-medium text-gray-700">{t('field.items')} <span className="text-red-500">*</span></h3>
             <button type="button" onClick={addItem} disabled={items.length >= 10}
-              className="text-sm text-blue-600 hover:text-blue-800 disabled:text-gray-400">+ 항목 추가</button>
+              className="text-sm text-blue-600 hover:text-blue-800 disabled:text-gray-400">{t('form.addItem')}</button>
           </div>
           <div className="space-y-2">
             {items.map((item, i) => (
@@ -257,29 +260,28 @@ export default function ResubmitPage() {
             ))}
           </div>
           <div className="flex justify-end mt-3 pt-3 border-t">
-            <span className="text-sm font-medium">합계: ₩{totalAmount.toLocaleString()}</span>
+            <span className="text-sm font-medium">{t('field.totalAmount')}: ₩{totalAmount.toLocaleString()}</span>
           </div>
         </div>
 
         <FileUpload
           files={files}
           onFilesChange={setFiles}
-          label="영수증"
           existingCount={original.receipts.length}
-          existingLabel={`기존 영수증 ${original.receipts.length}개가 유지됩니다. 새 파일을 선택하면 교체됩니다.`}
+          existingLabel={`${t('field.receipts')} ${original.receipts.length} - existing kept. Upload new to replace.`}
         />
 
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-1">비고</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{t('field.comments')}</label>
           <textarea value={comments} onChange={(e) => setComments(e.target.value)}
             rows={3} className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
         </div>
 
         <div className="flex items-center justify-between">
-          <Link to={`/request/${original.id}`} className="text-sm text-gray-500 hover:underline">← 원본 신청서</Link>
+          <Link to={`/request/${original.id}`} className="text-sm text-gray-500 hover:underline">{t('approval.originalRequest')}</Link>
           <button type="submit" disabled={submitting}
             className="bg-blue-600 text-white px-6 py-2 rounded text-sm font-medium hover:bg-blue-700 disabled:bg-gray-400">
-            {submitting ? '제출 중...' : '재신청'}
+            {submitting ? t('common.submitting') : t('approval.resubmit')}
           </button>
         </div>
       </form>
@@ -288,14 +290,14 @@ export default function ResubmitPage() {
         open={showConfirm}
         onClose={() => setShowConfirm(false)}
         onConfirm={handleSubmit}
-        title="재신청 확인"
+        title={t('approval.resubmitTitle')}
         items={[
-          { label: '신청자', value: payee },
-          { label: '항목 수', value: `${validItems.length}건` },
-          { label: '영수증', value: files.length > 0 ? `${files.length}개 (새 파일)` : `${original.receipts.length}개 (기존 유지)` },
+          { label: t('field.payee'), value: payee },
+          { label: t('field.items'), value: t('form.itemCount', { count: validItems.length }) },
+          { label: t('field.receipts'), value: files.length > 0 ? t('form.fileCount', { count: files.length }) : t('form.fileCount', { count: original.receipts.length }) },
         ]}
         totalAmount={totalAmount}
-        confirmLabel="확인 및 재신청"
+        confirmLabel={t('approval.resubmitConfirm')}
       />
     </Layout>
   )

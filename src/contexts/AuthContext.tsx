@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { onAuthStateChanged, signInWithPopup, signOut, User } from 'firebase/auth'
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
 import { auth, googleProvider, db } from '../lib/firebase'
+import i18n from '../lib/i18n'
 import { AppUser } from '../types'
 
 interface AuthContextType {
@@ -73,7 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error: unknown) {
       console.error('Google sign-in error:', error)
       const firebaseError = error as { code?: string; message?: string }
-      alert(`로그인 실패: ${firebaseError.code || firebaseError.message}`)
+      alert(`${i18n.t('auth.loginFailed')}: ${firebaseError.code || firebaseError.message}`)
     }
   }
 

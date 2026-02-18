@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { collection, query, where, getDocs, doc, serverTimestamp, writeBatch } from 'firebase/firestore'
 import { db } from '../lib/firebase'
@@ -7,6 +8,7 @@ import { PaymentRequest } from '../types'
 import Layout from '../components/Layout'
 
 export default function SettlementPage() {
+  const { t } = useTranslation()
   const { user, appUser } = useAuth()
   const navigate = useNavigate()
   const [requests, setRequests] = useState<PaymentRequest[]>([])
@@ -58,7 +60,7 @@ export default function SettlementPage() {
 
   const handleSettle = async () => {
     if (!user || !appUser || selected.size === 0) return
-    const confirmed = window.confirm(`${selected.size}건의 신청서를 정산 처리하시겠습니까?\n신청자 ${Object.keys(groupedByPayee).length}명의 통합 리포트가 생성됩니다.`)
+    const confirmed = window.confirm(t('settlement.settleConfirm', { count: selected.size, payeeCount: Object.keys(groupedByPayee).length }))
     if (!confirmed) return
 
     setProcessing(true)
@@ -102,7 +104,7 @@ export default function SettlementPage() {
       navigate('/admin/settlements')
     } catch (error) {
       console.error('Failed to create settlement:', error)
-      alert('정산 처리에 실패했습니다.')
+      alert(t('settlement.settleFailed'))
     } finally {
       setProcessing(false)
     }
@@ -112,27 +114,25 @@ export default function SettlementPage() {
     <Layout>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-xl font-bold">정산 처리</h2>
-          <p className="text-sm text-gray-500 mt-1">승인된 신청서를 선택하여 정산 처리합니다.</p>
+          <h2 className="text-xl font-bold">{t('settlement.title')}</h2>
+          <p className="text-sm text-gray-500 mt-1">{t('settlement.description')}</p>
         </div>
         <button onClick={handleSettle} disabled={selected.size === 0 || processing}
           className="bg-purple-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-purple-700 disabled:bg-gray-400">
-          {processing ? '처리 중...' : `선택 항목 정산 (${selected.size}건)`}
+          {processing ? t('settlement.processing') : t('settlement.settle', { count: selected.size })}
         </button>
       </div>
 
       {selected.size > 0 && (
         <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4 text-sm">
-          <span className="font-medium">{selected.size}건</span> 선택 |
-          신청자 <span className="font-medium">{Object.keys(groupedByPayee).length}명</span> |
-          총액 <span className="font-medium">₩{selectedRequests.reduce((sum, r) => sum + r.totalAmount, 0).toLocaleString()}</span>
+          {t('settlement.selectedSummary', { count: selected.size, payeeCount: Object.keys(groupedByPayee).length, amount: selectedRequests.reduce((sum, r) => sum + r.totalAmount, 0).toLocaleString() })}
         </div>
       )}
 
       {loading ? (
-        <p className="text-gray-500">불러오는 중...</p>
+        <p className="text-gray-500">{t('common.loading')}</p>
       ) : requests.length === 0 ? (
-        <p className="text-gray-500">승인된 신청서가 없습니다.</p>
+        <p className="text-gray-500">{t('settlement.noApproved')}</p>
       ) : (
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <table className="w-full text-sm">
@@ -142,11 +142,11 @@ export default function SettlementPage() {
                   <input type="checkbox" checked={selected.size === requests.length}
                     onChange={toggleAll} />
                 </th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">날짜</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">신청자</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">위원회</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">항목수</th>
-                <th className="text-right px-4 py-3 font-medium text-gray-600">합계</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">{t('field.date')}</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">{t('field.payee')}</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">{t('field.committee')}</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">{t('field.items')}</th>
+                <th className="text-right px-4 py-3 font-medium text-gray-600">{t('field.totalAmount')}</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -158,8 +158,8 @@ export default function SettlementPage() {
                   </td>
                   <td className="px-4 py-3">{req.date}</td>
                   <td className="px-4 py-3">{req.payee}</td>
-                  <td className="px-4 py-3">{req.committee === 'operations' ? '운영' : '준비'}</td>
-                  <td className="px-4 py-3">{req.items.length}건</td>
+                  <td className="px-4 py-3">{req.committee === 'operations' ? t('committee.operationsShort') : t('committee.preparationShort')}</td>
+                  <td className="px-4 py-3">{t('form.itemCount', { count: req.items.length })}</td>
                   <td className="px-4 py-3 text-right">₩{req.totalAmount.toLocaleString()}</td>
                 </tr>
               ))}

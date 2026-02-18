@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { collection, getDocs, orderBy, query } from 'firebase/firestore'
 import { db } from '../lib/firebase'
@@ -10,6 +11,7 @@ import EmptyState from '../components/EmptyState'
 import PageHeader from '../components/PageHeader'
 
 export default function SettlementListPage() {
+  const { t } = useTranslation()
   const [settlements, setSettlements] = useState<Settlement[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -33,17 +35,17 @@ export default function SettlementListPage() {
   return (
     <Layout>
       <PageHeader
-        title="정산 내역"
-        action={{ label: '새 정산 처리', to: '/admin/settlement/new', variant: 'purple' }}
+        title={t('settlement.listTitle')}
+        action={{ label: t('settlement.newSettlement'), to: '/admin/settlement/new', variant: 'purple' }}
       />
 
       {loading ? (
         <Spinner />
       ) : settlements.length === 0 ? (
         <EmptyState
-          title="정산 내역이 없습니다"
-          description="승인된 신청서를 선택하여 정산 처리를 시작하세요"
-          actionLabel="새 정산 처리"
+          title={t('settlement.noSettlements')}
+          description={t('settlement.description')}
+          actionLabel={t('settlement.newSettlement')}
           actionTo="/admin/settlement/new"
         />
       ) : (
@@ -54,12 +56,12 @@ export default function SettlementListPage() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50 border-b">
                   <tr>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">정산일</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">신청자</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">위원회</th>
-                    <th className="text-left px-4 py-3 font-medium text-gray-600">은행/계좌</th>
-                    <th className="text-right px-4 py-3 font-medium text-gray-600">총액</th>
-                    <th className="text-center px-4 py-3 font-medium text-gray-600">건수</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">{t('settlement.settlementDate')}</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">{t('field.payee')}</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">{t('field.committee')}</th>
+                    <th className="text-left px-4 py-3 font-medium text-gray-600">{t('field.bankAndAccount')}</th>
+                    <th className="text-right px-4 py-3 font-medium text-gray-600">{t('field.totalAmount')}</th>
+                    <th className="text-center px-4 py-3 font-medium text-gray-600">{t('settlement.requestCount')}</th>
                     <th className="text-center px-4 py-3 font-medium text-gray-600"></th>
                   </tr>
                 </thead>
@@ -68,13 +70,13 @@ export default function SettlementListPage() {
                     <tr key={s.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3">{formatDate(s)}</td>
                       <td className="px-4 py-3">{s.payee}</td>
-                      <td className="px-4 py-3">{s.committee === 'operations' ? '운영' : '준비'}</td>
+                      <td className="px-4 py-3">{s.committee === 'operations' ? t('committee.operationsShort') : t('committee.preparationShort')}</td>
                       <td className="px-4 py-3 text-gray-500">{s.bankName} {s.bankAccount}</td>
                       <td className="px-4 py-3 text-right font-medium">₩{s.totalAmount.toLocaleString()}</td>
-                      <td className="px-4 py-3 text-center">{s.requestIds.length}건</td>
+                      <td className="px-4 py-3 text-center">{t('form.itemCount', { count: s.requestIds.length })}</td>
                       <td className="px-4 py-3 text-center">
                         <Link to={`/admin/settlement/${s.id}`}
-                          className="text-purple-600 hover:underline text-sm">리포트</Link>
+                          className="text-purple-600 hover:underline text-sm">{t('settlement.report')}</Link>
                       </td>
                     </tr>
                   ))}
@@ -94,7 +96,7 @@ export default function SettlementListPage() {
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-gray-500">
-                    {s.committee === 'operations' ? '운영' : '준비'} | {s.requestIds.length}건
+                    {s.committee === 'operations' ? t('committee.operationsShort') : t('committee.preparationShort')} | {t('form.itemCount', { count: s.requestIds.length })}
                   </span>
                   <span className="font-medium text-purple-700">₩{s.totalAmount.toLocaleString()}</span>
                 </div>
