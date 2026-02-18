@@ -28,7 +28,7 @@ export default function DisplayNameModal() {
     if (!phone.trim()) errs.push(t('validation.phoneRequired'))
     if (!bankName.trim()) errs.push(t('validation.bankRequired'))
     if (!bankAccount.trim()) errs.push(t('validation.bankAccountRequired'))
-    if (!bankBookFile && !appUser?.bankBookDriveUrl) errs.push(t('validation.bankBookRequired'))
+    // bankBook is optional at initial setup - required at request submission
     return errs
   }
 
@@ -109,7 +109,7 @@ export default function DisplayNameModal() {
           </FormField>
 
           {/* Bank Book Upload */}
-          <FormField label={t('field.bankBook')} required hint={t('settings.bankBookRequiredHint')}>
+          <FormField label={t('field.bankBook')} hint={t('settings.bankBookRequiredHint')}>
             <input type="file" accept=".png,.jpg,.jpeg,.pdf"
               onChange={(e) => {
                 const f = e.target.files?.[0] || null

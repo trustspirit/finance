@@ -2,13 +2,14 @@ import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../contexts/AuthContext'
+import { isStaff, canAccessDashboard, canManageUsers } from '../lib/roles'
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { appUser, logout } = useAuth()
   const location = useLocation()
   const { t } = useTranslation()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const isAdmin = appUser?.role === 'admin' || appUser?.role === 'approver'
+  const role = appUser?.role || 'user'
   const userName = appUser?.displayName || appUser?.name || appUser?.email
 
   const navItems = [
@@ -17,10 +18,10 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   ]
 
   const adminItems = [
-    { to: '/admin/requests', label: t('nav.adminRequests') },
-    { to: '/admin/settlements', label: t('nav.settlements') },
-    { to: '/admin/dashboard', label: t('nav.dashboard') },
-    { to: '/admin/users', label: t('nav.userManagement') },
+    ...(isStaff(role) ? [{ to: '/admin/requests', label: t('nav.adminRequests') }] : []),
+    ...(isStaff(role) ? [{ to: '/admin/settlements', label: t('nav.settlements') }] : []),
+    ...(canAccessDashboard(role) ? [{ to: '/admin/dashboard', label: t('nav.dashboard') }] : []),
+    ...(canManageUsers(role) ? [{ to: '/admin/users', label: t('nav.userManagement') }] : []),
   ]
 
   const isActive = (path: string) => location.pathname === path
@@ -44,7 +45,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   {item.label}
                 </Link>
               ))}
-              {isAdmin && (
+              {adminItems.length > 0 && (
                 <>
                   <span className="mx-1 text-gray-300">|</span>
                   {adminItems.map((item) => (
@@ -63,8 +64,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <div className="hidden lg:flex items-center gap-3">
               <span className="text-sm text-gray-700">
                 {userName}
-                {appUser?.role === 'admin' && <span className="ml-1.5 text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded">{t('role.admin')}</span>}
-                {appUser?.role === 'approver' && <span className="ml-1.5 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">{t('role.approver')}</span>}
+                {role !== 'user' && <span className="ml-1.5 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">{t(`role.${role}`)}</span>}
               </span>
               <Link to="/settings" aria-label={t('nav.settings')}
                 className={`p-2 rounded-md transition-colors ${isActive('/settings') ? 'bg-gray-100' : 'hover:bg-gray-100'}`}>
@@ -112,7 +112,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   {item.label}
                 </Link>
               ))}
-              {isAdmin && (
+              {adminItems.length > 0 && (
                 <>
                   <p className="px-3 py-1 mt-2 text-xs text-gray-400 uppercase tracking-wider">{t('role.admin')}</p>
                   {adminItems.map((item) => (
@@ -134,8 +134,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 <div className="px-3 py-2 flex items-center justify-between">
                   <span className="text-sm text-gray-500">
                     {userName}
-                    {appUser?.role === 'admin' && <span className="ml-1.5 text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded">{t('role.admin')}</span>}
-                    {appUser?.role === 'approver' && <span className="ml-1.5 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">{t('role.approver')}</span>}
+                    {role !== 'user' && <span className="ml-1.5 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">{t(`role.${role}`)}</span>}
                   </span>
                   <button onClick={logout} className="text-sm text-red-600 hover:text-red-700">{t('nav.logout')}</button>
                 </div>

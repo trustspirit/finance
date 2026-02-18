@@ -44,7 +44,9 @@
   },
   "role": {
     "user": "User",
-    "approver": "Approver",
+    "approver_ops": "Session Approver",
+    "approver_prep": "Logistical Approver",
+    "finance": "Finance",
     "admin": "Admin"
   },
   "status": {

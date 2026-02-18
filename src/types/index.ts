@@ -1,4 +1,4 @@
-export type UserRole = 'user' | 'admin' | 'approver'
+export type UserRole = 'user' | 'approver_ops' | 'approver_prep' | 'finance' | 'admin'
 
 export interface AppUser {
   uid: string

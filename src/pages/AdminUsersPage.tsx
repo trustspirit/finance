@@ -19,7 +19,9 @@ export default function AdminUsersPage() {
 
   const ROLE_LABELS: Record<UserRole, string> = {
     user: t('role.user'),
-    approver: t('role.approver'),
+    approver_ops: t('role.approver_ops'),
+    approver_prep: t('role.approver_prep'),
+    finance: t('role.finance'),
     admin: t('role.admin'),
   }
 
@@ -106,7 +108,9 @@ export default function AdminUsersPage() {
                             }`}
                           >
                             <option value="user">{t('role.user')}</option>
-                            <option value="approver">{t('role.approver')}</option>
+                            <option value="approver_ops">{t('role.approver_ops')}</option>
+                            <option value="approver_prep">{t('role.approver_prep')}</option>
+                            <option value="finance">{t('role.finance')}</option>
                             <option value="admin">{t('role.admin')}</option>
                           </select>
                           {successUid === u.uid && (

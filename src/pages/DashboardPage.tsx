@@ -38,7 +38,7 @@ export default function DashboardPage() {
   const [tempBudget, setTempBudget] = useState<BudgetConfig>({ totalBudget: 0, byCode: {} })
   const [savingBudget, setSavingBudget] = useState(false)
 
-  const canEditBudget = appUser?.role === 'admin' || appUser?.role === 'approver'
+  const canEditBudget = appUser?.role === 'admin' || appUser?.role === 'finance'
 
   useEffect(() => {
     const fetchData = async () => {

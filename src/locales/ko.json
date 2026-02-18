@@ -44,7 +44,9 @@
   },
   "role": {
     "user": "일반 사용자",
-    "approver": "승인자",
+    "approver_ops": "운영위 승인자",
+    "approver_prep": "준비위 승인자",
+    "finance": "재정담당",
     "admin": "관리자"
   },
   "status": {

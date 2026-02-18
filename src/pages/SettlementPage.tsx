@@ -5,11 +5,13 @@ import { collection, query, where, getDocs, doc, serverTimestamp, writeBatch } f
 import { db } from '../lib/firebase'
 import { useAuth } from '../contexts/AuthContext'
 import { PaymentRequest } from '../types'
+import { canApproveCommittee } from '../lib/roles'
 import Layout from '../components/Layout'
 
 export default function SettlementPage() {
   const { t } = useTranslation()
   const { user, appUser } = useAuth()
+  const role = appUser?.role || 'user'
   const navigate = useNavigate()
   const [requests, setRequests] = useState<PaymentRequest[]>([])
   const [loading, setLoading] = useState(true)
@@ -21,7 +23,8 @@ export default function SettlementPage() {
       try {
         const q = query(collection(db, 'requests'), where('status', '==', 'approved'))
         const snap = await getDocs(q)
-        setRequests(snap.docs.map((d) => ({ id: d.id, ...d.data() } as PaymentRequest)))
+        const all = snap.docs.map((d) => ({ id: d.id, ...d.data() } as PaymentRequest))
+        setRequests(all.filter((r) => canApproveCommittee(role, r.committee)))
       } catch (error) {
         console.error('Failed to fetch approved requests:', error)
       } finally {

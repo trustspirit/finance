@@ -11,10 +11,12 @@ import Spinner from '../components/Spinner'
 import PageHeader from '../components/PageHeader'
 import Modal from '../components/Modal'
 import { useTranslation } from 'react-i18next'
+import { canApproveCommittee } from '../lib/roles'
 
 export default function AdminRequestsPage() {
   const { t } = useTranslation()
   const { user, appUser } = useAuth()
+  const role = appUser?.role || 'user'
   const [requests, setRequests] = useState<PaymentRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<RequestStatus | 'all'>('all')
@@ -111,7 +113,9 @@ export default function AdminRequestsPage() {
     setRejectModalRequestId(null)
   }
 
-  const filtered = filter === 'all' ? requests : requests.filter((r) => r.status === filter)
+  // Filter by committee access first, then by status
+  const accessible = requests.filter((r) => canApproveCommittee(role, r.committee))
+  const filtered = filter === 'all' ? accessible : accessible.filter((r) => r.status === filter)
 
   return (
     <Layout>

@@ -142,15 +142,21 @@ cd functions && npm install && cd ..
 
 # 개발 서버 실행
 npm run dev
+```
 
-# Mock 데이터 생성 (선택)
+브라우저에서 `http://localhost:5173` 접속
+
+### Mock 데이터
+
+개발/테스트용 mock 데이터를 Firestore에 넣을 수 있습니다.
+
+```bash
+# Mock 데이터 생성 (사용자 4명, 신청서 10건, 정산 2건, 예산 설정)
 npm run seed
 
 # Mock 데이터 삭제
 npm run seed:clear
 ```
-
-브라우저에서 `http://localhost:5173` 접속
 
 ## 7. 배포
 
