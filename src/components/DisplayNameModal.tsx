@@ -4,7 +4,7 @@ import { httpsCallable } from 'firebase/functions'
 import { functions } from '../lib/firebase'
 import { useAuth } from '../contexts/AuthContext'
 import { Committee } from '../types'
-import { formatPhone, fileToBase64 } from '../lib/utils'
+import { formatPhone, fileToBase64, validateBankBookFile } from '../lib/utils'
 import ErrorAlert from './ErrorAlert'
 import CommitteeSelect from './CommitteeSelect'
 import FormField from './FormField'
@@ -18,6 +18,7 @@ export default function DisplayNameModal() {
   const [bankAccount, setBankAccount] = useState(appUser?.bankAccount || '')
   const [committee, setCommittee] = useState<Committee>('operations')
   const [bankBookFile, setBankBookFile] = useState<File | null>(null)
+  const [bankBookError, setBankBookError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
 
@@ -109,11 +110,20 @@ export default function DisplayNameModal() {
 
           {/* Bank Book Upload */}
           <FormField label={t('field.bankBook')} required hint={t('settings.bankBookRequiredHint')}>
-            <input type="file" accept="image/*,.pdf"
-              onChange={(e) => setBankBookFile(e.target.files?.[0] || null)}
+            <input type="file" accept=".png,.jpg,.jpeg,.pdf"
+              onChange={(e) => {
+                const f = e.target.files?.[0] || null
+                if (f) {
+                  const err = validateBankBookFile(f)
+                  if (err) { setBankBookError(err); setBankBookFile(null); e.target.value = ''; return }
+                }
+                setBankBookError(null)
+                setBankBookFile(f)
+              }}
               className="w-full text-sm text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+            {bankBookError && <p className="text-xs text-red-600 mt-1">{bankBookError}</p>}
             {bankBookFile && (
-              <p className="text-xs text-green-600 mt-1">{bankBookFile.name}</p>
+              <p className="text-xs text-green-600 mt-1">{bankBookFile.name} ({(bankBookFile.size / 1024).toFixed(0)}KB)</p>
             )}
           </FormField>
 

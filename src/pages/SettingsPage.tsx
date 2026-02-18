@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { httpsCallable } from 'firebase/functions'
 import { functions } from '../lib/firebase'
-import { formatPhone, fileToBase64 } from '../lib/utils'
+import { formatPhone, fileToBase64, validateBankBookFile } from '../lib/utils'
 import { useAuth } from '../contexts/AuthContext'
 import { Committee } from '../types'
 import Layout from '../components/Layout'
@@ -23,6 +23,7 @@ export default function SettingsPage() {
 
   const [bankBookFile, setBankBookFile] = useState<File | null>(null)
   const [uploadingBankBook, setUploadingBankBook] = useState(false)
+  const [bankBookError, setBankBookError] = useState<string | null>(null)
   const hasBankBook = !!(appUser?.bankBookDriveUrl)
 
   const handleSave = async () => {
@@ -156,9 +157,18 @@ export default function SettingsPage() {
             </div>
           )}
           <div className="flex items-center gap-2">
-            <input type="file" accept="image/*,.pdf"
-              onChange={(e) => setBankBookFile(e.target.files?.[0] || null)}
+            <input type="file" accept=".png,.jpg,.jpeg,.pdf"
+              onChange={(e) => {
+                const f = e.target.files?.[0] || null
+                if (f) {
+                  const err = validateBankBookFile(f)
+                  if (err) { setBankBookError(err); setBankBookFile(null); e.target.value = ''; return }
+                }
+                setBankBookError(null)
+                setBankBookFile(f)
+              }}
               className="text-sm text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+            {bankBookError && <p className="text-xs text-red-600 mt-1">{bankBookError}</p>}
             {bankBookFile && (
               <button onClick={handleUploadBankBook} disabled={uploadingBankBook}
                 className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 disabled:bg-gray-400 whitespace-nowrap">

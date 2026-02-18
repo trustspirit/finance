@@ -9,27 +9,28 @@
  * - Budget config
  */
 
-import { initializeApp, cert } from 'firebase-admin/app'
-import { getFirestore, Timestamp } from 'firebase-admin/firestore'
-import { readFileSync } from 'fs'
-import { join, dirname } from 'path'
-import { fileURLToPath } from 'url'
+import { initializeApp, cert } from 'firebase-admin/app';
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { readFileSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const serviceAccount = JSON.parse(
-  readFileSync(join(__dirname, '..', 'functions', 'service-account.json'), 'utf8')
-)
+  readFileSync(join(__dirname, '..', 'functions', 'service-account.json'), 'utf8'),
+);
 
-initializeApp({ credential: cert(serviceAccount) })
-const db = getFirestore()
+initializeApp({ credential: cert(serviceAccount) });
+const db = getFirestore();
 
 // Simple signature SVG as base64
-const MOCK_SIGNATURE = 'data:image/svg+xml;base64,' + Buffer.from(
-  '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="60"><path d="M10,40 C30,10 50,50 80,30 S120,10 150,35 S180,50 190,30" fill="none" stroke="#000" stroke-width="2"/></svg>'
-).toString('base64')
+const MOCK_SIGNATURE =
+  'data:image/svg+xml;base64,' +
+  Buffer.from(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="60"><path d="M10,40 C30,10 50,50 80,30 S120,10 150,35 S180,50 190,30" fill="none" stroke="#000" stroke-width="2"/></svg>',
+  ).toString('base64');
 
-const now = Timestamp.now()
-const daysAgo = (d: number) => Timestamp.fromDate(new Date(Date.now() - d * 86400000))
+const daysAgo = (d: number) => Timestamp.fromDate(new Date(Date.now() - d * 86400000));
 
 // ============ USERS ============
 const users = [
@@ -93,14 +94,14 @@ const users = [
     bankBookDriveUrl: 'https://drive.google.com/mock-bankbook-2',
     role: 'user',
   },
-]
+];
 
 // ============ MOCK RECEIPTS ============
 const mockReceipt = (name: string) => ({
   fileName: name,
   driveFileId: 'mock-file-id-' + Math.random().toString(36).slice(2, 8),
   driveUrl: 'https://drive.google.com/file/d/mock/view',
-})
+});
 
 // ============ REQUESTS ============
 const requests = [
@@ -117,7 +118,7 @@ const requests = [
     session: '한국',
     committee: 'operations',
     items: [
-      { description: 'FSY 운영위원회 훈련 점심 도시락', budgetCode: 5400, amount: 568000 },
+      { description: '운영위원회 훈련 점심 도시락', budgetCode: 5400, amount: 568000 },
       { description: '운영위원회 교통비', budgetCode: 5110, amount: 82600 },
     ],
     totalAmount: 650600,
@@ -129,7 +130,7 @@ const requests = [
     rejectionReason: null,
     settlementId: null,
     originalRequestId: null,
-    comments: 'FSY 운영위원회 2월 훈련 모임 관련 비용입니다.',
+    comments: '운영위원회 2월 훈련 모임 관련 비용입니다.',
   },
   {
     id: 'req-pending-002',
@@ -196,13 +197,15 @@ const requests = [
     date: '2025-02-08',
     session: '한국',
     committee: 'operations',
-    items: [
-      { description: '참가자 교통비 지원', budgetCode: 5110, amount: 320000 },
-    ],
+    items: [{ description: '참가자 교통비 지원', budgetCode: 5110, amount: 320000 }],
     totalAmount: 320000,
     receipts: [mockReceipt('transport_support.pdf')],
     requestedBy: { uid: 'mock-user-001', name: '이영희', email: 'younghee@example.com' },
-    approvedBy: { uid: 'mock-approver-001', name: '김민수', email: 'approver@example.com' },
+    approvedBy: {
+      uid: 'mock-approver-001',
+      name: '김민수',
+      email: 'approver@example.com',
+    },
     approvalSignature: MOCK_SIGNATURE,
     approvedAt: daysAgo(5),
     rejectionReason: null,
@@ -234,7 +237,7 @@ const requests = [
     rejectionReason: null,
     settlementId: null,
     originalRequestId: null,
-    comments: 'FSY 2025 행사 물품',
+    comments: '2025 행사 물품',
   },
   {
     id: 'req-approved-003',
@@ -254,7 +257,11 @@ const requests = [
     totalAmount: 650000,
     receipts: [mockReceipt('facility_receipt.pdf')],
     requestedBy: { uid: 'mock-user-002', name: '박준혁', email: 'junhyuk@example.com' },
-    approvedBy: { uid: 'mock-approver-001', name: '김민수', email: 'approver@example.com' },
+    approvedBy: {
+      uid: 'mock-approver-001',
+      name: '김민수',
+      email: 'approver@example.com',
+    },
     approvalSignature: MOCK_SIGNATURE,
     approvedAt: daysAgo(4),
     rejectionReason: null,
@@ -275,16 +282,19 @@ const requests = [
     date: '2025-02-10',
     session: '한국',
     committee: 'operations',
-    items: [
-      { description: '개인 식사비', budgetCode: 5400, amount: 25000 },
-    ],
+    items: [{ description: '개인 식사비', budgetCode: 5400, amount: 25000 }],
     totalAmount: 25000,
     receipts: [mockReceipt('personal_meal.jpg')],
     requestedBy: { uid: 'mock-user-001', name: '이영희', email: 'younghee@example.com' },
-    approvedBy: { uid: 'mock-approver-001', name: '김민수', email: 'approver@example.com' },
+    approvedBy: {
+      uid: 'mock-approver-001',
+      name: '김민수',
+      email: 'approver@example.com',
+    },
     approvalSignature: null,
     approvedAt: daysAgo(4),
-    rejectionReason: '개인 식사비는 환불 대상이 아닙니다. FSY 행사와 직접 관련된 비용만 신청 가능합니다.',
+    rejectionReason:
+      '개인 식사비는 환불 대상이 아닙니다. 행사와 직접 관련된 비용만 신청 가능합니다.',
     settlementId: null,
     originalRequestId: null,
     comments: '',
@@ -300,16 +310,15 @@ const requests = [
     date: '2025-02-07',
     session: '한국',
     committee: 'preparation',
-    items: [
-      { description: '숙박비 (호텔)', budgetCode: 5862, amount: 350000 },
-    ],
+    items: [{ description: '숙박비 (호텔)', budgetCode: 5862, amount: 350000 }],
     totalAmount: 350000,
     receipts: [mockReceipt('hotel_receipt.pdf')],
     requestedBy: { uid: 'mock-user-002', name: '박준혁', email: 'junhyuk@example.com' },
     approvedBy: { uid: 'mock-admin-001', name: '정신영', email: 'admin@example.com' },
     approvalSignature: null,
     approvedAt: daysAgo(6),
-    rejectionReason: '영수증의 금액과 신청 금액이 일치하지 않습니다. 확인 후 재신청해주세요.',
+    rejectionReason:
+      '영수증의 금액과 신청 금액이 일치하지 않습니다. 확인 후 재신청해주세요.',
     settlementId: null,
     originalRequestId: null,
     comments: '위원회 출장 숙박',
@@ -334,7 +343,11 @@ const requests = [
     totalAmount: 570000,
     receipts: [mockReceipt('jan_meal.jpg'), mockReceipt('jan_transport.pdf')],
     requestedBy: { uid: 'mock-user-001', name: '이영희', email: 'younghee@example.com' },
-    approvedBy: { uid: 'mock-approver-001', name: '김민수', email: 'approver@example.com' },
+    approvedBy: {
+      uid: 'mock-approver-001',
+      name: '김민수',
+      email: 'approver@example.com',
+    },
     approvalSignature: MOCK_SIGNATURE,
     approvedAt: daysAgo(18),
     rejectionReason: null,
@@ -368,7 +381,7 @@ const requests = [
     originalRequestId: null,
     comments: '1월 준비위원회 홍보 관련',
   },
-]
+];
 
 // ============ SETTLEMENTS (per payee) ============
 const settlements = [
@@ -389,7 +402,11 @@ const settlements = [
     totalAmount: 570000,
     receipts: [mockReceipt('jan_meal.jpg'), mockReceipt('jan_transport.pdf')],
     requestIds: ['req-settled-001'],
-    approvedBy: { uid: 'mock-approver-001', name: '김민수', email: 'approver@example.com' },
+    approvedBy: {
+      uid: 'mock-approver-001',
+      name: '김민수',
+      email: 'approver@example.com',
+    },
     approvalSignature: MOCK_SIGNATURE,
   },
   {
@@ -412,7 +429,7 @@ const settlements = [
     approvedBy: { uid: 'mock-admin-001', name: '정신영', email: 'admin@example.com' },
     approvalSignature: MOCK_SIGNATURE,
   },
-]
+];
 
 // ============ BUDGET CONFIG ============
 const budgetConfig = {
@@ -424,52 +441,58 @@ const budgetConfig = {
     5200: 2000000,
     4500: 1000000,
   },
-}
+};
 
 // ============ SEED ============
 async function seed() {
-  console.log('🌱 Seeding Firestore with mock data...\n')
+  console.log('🌱 Seeding Firestore with mock data...\n');
 
   // Users
-  console.log('👤 Creating users...')
+  console.log('👤 Creating users...');
   for (const user of users) {
-    await db.collection('users').doc(user.uid).set(user)
-    console.log(`   ✓ ${user.displayName} (${user.role})`)
+    await db.collection('users').doc(user.uid).set(user);
+    console.log(`   ✓ ${user.displayName} (${user.role})`);
   }
 
   // Requests
-  console.log('\n📋 Creating payment requests...')
+  console.log('\n📋 Creating payment requests...');
   for (const req of requests) {
-    const { id, ...data } = req
-    await db.collection('requests').doc(id).set(data)
-    console.log(`   ✓ ${req.payee} - ${req.status} - ₩${req.totalAmount.toLocaleString()}`)
+    const { id, ...data } = req;
+    await db.collection('requests').doc(id).set(data);
+    console.log(
+      `   ✓ ${req.payee} - ${req.status} - ₩${req.totalAmount.toLocaleString()}`,
+    );
   }
 
   // Settlements
-  console.log('\n📊 Creating settlements...')
+  console.log('\n📊 Creating settlements...');
   for (const s of settlements) {
-    const { id: sId, ...sData } = s
-    await db.collection('settlements').doc(sId).set(sData)
-    console.log(`   ✓ ${s.payee} - ₩${s.totalAmount.toLocaleString()}`)
+    const { id: sId, ...sData } = s;
+    await db.collection('settlements').doc(sId).set(sData);
+    console.log(`   ✓ ${s.payee} - ₩${s.totalAmount.toLocaleString()}`);
   }
 
   // Budget Config
-  console.log('\n💰 Setting budget config...')
-  await db.collection('settings').doc('budget-config').set(budgetConfig)
-  console.log(`   ✓ Total: ₩${budgetConfig.totalBudget.toLocaleString()}`)
+  console.log('\n💰 Setting budget config...');
+  await db.collection('settings').doc('budget-config').set(budgetConfig);
+  console.log(`   ✓ Total: ₩${budgetConfig.totalBudget.toLocaleString()}`);
 
-  console.log('\n✅ Seed complete!')
-  console.log('\n📊 Summary:')
-  console.log(`   Users:      ${users.length}`)
-  console.log(`   Requests:   ${requests.length} (3 pending, 3 approved, 2 rejected, 2 settled)`)
-  console.log(`   Settlements: ${settlements.length}`)
-  console.log(`   Budget:     ₩${budgetConfig.totalBudget.toLocaleString()}`)
-  console.log('\n💡 Login with any Google account, then change your user doc\'s role to "admin" in Firestore Console to see all features.')
+  console.log('\n✅ Seed complete!');
+  console.log('\n📊 Summary:');
+  console.log(`   Users:      ${users.length}`);
+  console.log(
+    `   Requests:   ${requests.length} (3 pending, 3 approved, 2 rejected, 2 settled)`,
+  );
+  console.log(`   Settlements: ${settlements.length}`);
+  console.log(`   Budget:     ₩${budgetConfig.totalBudget.toLocaleString()}`);
+  console.log(
+    '\n💡 Login with any Google account, then change your user doc\'s role to "admin" in Firestore Console to see all features.',
+  );
 
-  process.exit(0)
+  process.exit(0);
 }
 
 seed().catch((err) => {
-  console.error('❌ Seed failed:', err)
-  process.exit(1)
-})
+  console.error('❌ Seed failed:', err);
+  process.exit(1);
+});

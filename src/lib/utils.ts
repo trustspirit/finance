@@ -46,3 +46,19 @@ export function validateFiles(files: File[]): { valid: File[]; errors: string[] 
 
   return { valid, errors }
 }
+
+/** 통장사본 파일 검증 (PNG/JPG/PDF, 800KB 이하) */
+export function validateBankBookFile(file: File): string | null {
+  const ALLOWED_TYPES = ['image/png', 'image/jpeg', 'application/pdf']
+  const ALLOWED_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.pdf']
+  const MAX_SIZE = 800 * 1024 // 800KB
+
+  const ext = '.' + file.name.split('.').pop()?.toLowerCase()
+  if (!ALLOWED_TYPES.includes(file.type) && !ALLOWED_EXTENSIONS.includes(ext)) {
+    return `PNG, JPG, PDF only`
+  }
+  if (file.size > MAX_SIZE) {
+    return `Max 800KB (${(file.size / 1024).toFixed(0)}KB)`
+  }
+  return null
+}
