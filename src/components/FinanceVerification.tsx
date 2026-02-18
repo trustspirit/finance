@@ -12,10 +12,6 @@ export default function FinanceVerification({ documentNo = 'KOR01-6762808-5xxx-K
           <p className="font-mono font-medium">{documentNo}</p>
         </div>
         <div>
-          <p className="text-xs text-gray-500">Due Date</p>
-          <div className="border-b border-gray-300 h-6" />
-        </div>
-        <div>
           <p className="text-xs text-gray-500">Signature</p>
           <div className="border-b border-gray-300 h-8" />
         </div>

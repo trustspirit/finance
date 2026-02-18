@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { httpsCallable } from 'firebase/functions'
+import { functions } from '../lib/firebase'
 import { useAuth } from '../contexts/AuthContext'
 import { Committee } from '../types'
-import { formatPhone } from '../lib/utils'
+import { formatPhone, fileToBase64 } from '../lib/utils'
 import ErrorAlert from './ErrorAlert'
 import CommitteeSelect from './CommitteeSelect'
 import FormField from './FormField'
@@ -15,6 +17,7 @@ export default function DisplayNameModal() {
   const [bankName, setBankName] = useState(appUser?.bankName || '')
   const [bankAccount, setBankAccount] = useState(appUser?.bankAccount || '')
   const [committee, setCommittee] = useState<Committee>('operations')
+  const [bankBookFile, setBankBookFile] = useState<File | null>(null)
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
 
@@ -24,6 +27,7 @@ export default function DisplayNameModal() {
     if (!phone.trim()) errs.push(t('validation.phoneRequired'))
     if (!bankName.trim()) errs.push(t('validation.bankRequired'))
     if (!bankAccount.trim()) errs.push(t('validation.bankAccountRequired'))
+    if (!bankBookFile && !appUser?.bankBookDriveUrl) errs.push(t('validation.bankBookRequired'))
     return errs
   }
 
@@ -36,13 +40,34 @@ export default function DisplayNameModal() {
     setErrors([])
     setSaving(true)
     try {
-      await updateAppUser({
-        displayName: displayName.trim(),
-        phone: phone.trim(),
-        bankName: bankName.trim(),
-        bankAccount: bankAccount.trim(),
-        defaultCommittee: committee,
-      })
+      // Upload bank book if selected
+      if (bankBookFile) {
+        const data = await fileToBase64(bankBookFile)
+        const uploadFn = httpsCallable<
+          { file: { name: string; data: string } },
+          { fileName: string; driveFileId: string; driveUrl: string }
+        >(functions, 'uploadBankBook')
+        const result = await uploadFn({ file: { name: bankBookFile.name, data } })
+        const { driveFileId, driveUrl } = result.data
+        await updateAppUser({
+          displayName: displayName.trim(),
+          phone: phone.trim(),
+          bankName: bankName.trim(),
+          bankAccount: bankAccount.trim(),
+          defaultCommittee: committee,
+          bankBookImage: data,
+          bankBookDriveId: driveFileId,
+          bankBookDriveUrl: driveUrl,
+        })
+      } else {
+        await updateAppUser({
+          displayName: displayName.trim(),
+          phone: phone.trim(),
+          bankName: bankName.trim(),
+          bankAccount: bankAccount.trim(),
+          defaultCommittee: committee,
+        })
+      }
       setNeedsDisplayName(false)
     } catch (error) {
       console.error('Failed to save profile:', error)
@@ -53,15 +78,15 @@ export default function DisplayNameModal() {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md mx-4">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
         <h3 className="text-lg font-bold mb-1">{t('setup.title')}</h3>
         <p className="text-sm text-gray-500 mb-4">{t('setup.description')}</p>
 
         <ErrorAlert errors={errors} />
 
         <div className="space-y-3">
-          <FormField label={t('field.displayName')} required>
+          <FormField label={t('field.displayName')} required hint={t('settings.displayNameHint')}>
             <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)}
               autoFocus className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
           </FormField>
@@ -80,6 +105,16 @@ export default function DisplayNameModal() {
           <FormField label={t('field.bankAccount')} required>
             <input type="text" value={bankAccount} onChange={(e) => setBankAccount(e.target.value)}
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
+          </FormField>
+
+          {/* Bank Book Upload */}
+          <FormField label={t('field.bankBook')} required hint={t('settings.bankBookRequiredHint')}>
+            <input type="file" accept="image/*,.pdf"
+              onChange={(e) => setBankBookFile(e.target.files?.[0] || null)}
+              className="w-full text-sm text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+            {bankBookFile && (
+              <p className="text-xs text-green-600 mt-1">{bankBookFile.name}</p>
+            )}
           </FormField>
 
           <CommitteeSelect value={committee} onChange={setCommittee}

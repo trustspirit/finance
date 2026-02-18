@@ -100,12 +100,12 @@ export async function exportSettlementPdf(settlement: Settlement) {
   <div style="margin-top:30px; display:flex; justify-content:space-between; align-items:flex-end;">
     <div style="flex:1;">
       <p style="font-size:10px; color:#666; margin-bottom:4px;">Requested by</p>
-      ${settlement.approvalSignature ? `<img src="${settlement.approvalSignature}" alt="signature" style="max-height:50px;" />` : ''}
       <div style="border-top:1px solid #ccc; width:200px; margin-top:4px; padding-top:2px; font-size:10px;">${escapeHtml(settlement.payee)}</div>
     </div>
     <div style="flex:1; text-align:center;">
       <p style="font-size:10px; color:#666; margin-bottom:4px;">Approved by (signature of budget approver)</p>
-      <div style="border-top:1px solid #ccc; width:200px; margin:4px auto 0; padding-top:2px; font-size:10px;">&nbsp;</div>
+      ${settlement.approvalSignature ? `<img src="${settlement.approvalSignature}" alt="signature" style="max-height:50px;" />` : ''}
+      <div style="border-top:1px solid #ccc; width:200px; margin:4px auto 0; padding-top:2px; font-size:10px;">${settlement.approvedBy ? escapeHtml(settlement.approvedBy.name) : '&nbsp;'}</div>
     </div>
   </div>
 
@@ -113,7 +113,6 @@ export async function exportSettlementPdf(settlement: Settlement) {
     <p style="font-weight:600; margin-bottom:8px;">Area Office Finance Verification</p>
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
       <div><p style="color:#666; font-size:10px;">Document No.</p><p style="font-weight:600;">KOR01-6762808-5xxx-KYSA2025KOR</p></div>
-      <div><p style="color:#666; font-size:10px;">Due Date</p><div style="border-bottom:1px solid #ccc; height:20px;"></div></div>
       <div><p style="color:#666; font-size:10px;">Signature</p><div style="border-bottom:1px solid #ccc; height:30px;"></div></div>
       <div><p style="color:#666; font-size:10px;">Date approved</p><div style="border-bottom:1px solid #ccc; height:20px;"></div></div>
     </div>

@@ -95,7 +95,11 @@ export default function SettlementReportPage() {
           </div>
         )}
 
-        <SignatureBlock payeeName={settlement.payee} signatureData={settlement.approvalSignature} />
+        <SignatureBlock
+          payeeName={settlement.payee}
+          signatureData={settlement.approvalSignature}
+          approverName={settlement.approvedBy?.name}
+        />
         <FinanceVerification />
 
         <div className="mt-6">

@@ -69,6 +69,14 @@ export default function SettlementPage() {
 
       const batch = writeBatch(db)
 
+      // Validate all selected have approval signature
+      const missingApproval = selectedRequests.find((r) => !r.approvalSignature || !r.approvedBy)
+      if (missingApproval) {
+        alert(t('settlement.settleFailed') + ': ' + missingApproval.payee + ' - missing approval signature')
+        setProcessing(false)
+        return
+      }
+
       for (const [, reqs] of Object.entries(groupedByPayee)) {
         const first = reqs[0]
         const allItems = reqs.flatMap((r) => r.items)
@@ -89,6 +97,7 @@ export default function SettlementPage() {
           totalAmount,
           receipts: allReceipts,
           requestIds: reqs.map((r) => r.id),
+          approvedBy: first.approvedBy,
           approvalSignature: first.approvalSignature || null,
         })
 
