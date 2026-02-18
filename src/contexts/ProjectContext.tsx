@@ -52,7 +52,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       // Admin sees all active projects
       let allProjects: Project[] = []
       if (appUser.role === 'admin') {
-        const snap = await getDocs(collection(db, 'projects'))
+        const q = query(collection(db, 'projects'), where('isActive', '==', true))
+        const snap = await getDocs(q)
         allProjects = snap.docs.map(d => ({ id: d.id, ...d.data() } as Project))
       } else {
         // Fetch only assigned projects (Firestore 'in' supports up to 30)

@@ -28,11 +28,12 @@ export default function AdminRequestsPage() {
   const [rejectionReason, setRejectionReason] = useState('')
 
   useEffect(() => {
+    if (!currentProject?.id) return
     const fetchRequests = async () => {
       try {
         const q = query(
           collection(db, 'requests'),
-          where('projectId', '==', currentProject?.id),
+          where('projectId', '==', currentProject.id),
           orderBy('createdAt', 'desc')
         )
         const snap = await getDocs(q)

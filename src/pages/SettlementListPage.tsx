@@ -18,11 +18,12 @@ export default function SettlementListPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!currentProject?.id) return
     const fetch = async () => {
       try {
         const q = query(
           collection(db, 'settlements'),
-          where('projectId', '==', currentProject?.id),
+          where('projectId', '==', currentProject.id),
           orderBy('createdAt', 'desc')
         )
         const snap = await getDocs(q)

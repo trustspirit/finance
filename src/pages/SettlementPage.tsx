@@ -23,9 +23,10 @@ export default function SettlementPage() {
   const [lastClickedIndex, setLastClickedIndex] = useState<number | null>(null)
 
   useEffect(() => {
+    if (!currentProject?.id) return
     const fetchApproved = async () => {
       try {
-        const q = query(collection(db, 'requests'), where('projectId', '==', currentProject?.id), where('status', '==', 'approved'))
+        const q = query(collection(db, 'requests'), where('projectId', '==', currentProject.id), where('status', '==', 'approved'))
         const snap = await getDocs(q)
         const all = snap.docs.map((d) => ({ id: d.id, ...d.data() } as PaymentRequest))
         setRequests(all.filter((r) => canApproveCommittee(role, r.committee)))
@@ -99,7 +100,7 @@ export default function SettlementPage() {
 
       // Check batch size limit (Firestore max: 500 operations per batch)
       const totalOps = Object.values(groupedByPayee).reduce((sum, reqs) => sum + 1 + reqs.length, 0)
-      if (totalOps > 500) {
+      if (totalOps >= 500) {
         alert(t('settlement.settleFailed') + ': Too many operations. Please select fewer requests.')
         setProcessing(false)
         return

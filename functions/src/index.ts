@@ -36,6 +36,9 @@ interface UploadResult {
 }
 
 async function uploadFileToDrive(drive: ReturnType<typeof getDriveService>, file: FileInput, folderId: string): Promise<UploadResult> {
+  if (!file.data.includes(',')) {
+    throw new Error('File data must be a base64 data URI')
+  }
   const base64Data = file.data.split(',')[1]
   const buffer = Buffer.from(base64Data, 'base64')
   const mimeType = file.data.split(';')[0].split(':')[1]

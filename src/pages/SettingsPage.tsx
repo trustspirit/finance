@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { httpsCallable } from 'firebase/functions'
-import { collection, getDocs, doc, setDoc, deleteDoc, updateDoc, arrayUnion, arrayRemove, getDoc, serverTimestamp } from 'firebase/firestore'
+import { collection, getDocs, doc, setDoc, deleteDoc, arrayUnion, arrayRemove, getDoc, serverTimestamp, writeBatch } from 'firebase/firestore'
 import { db, functions } from '../lib/firebase'
 import { formatPhone, fileToBase64, validateBankBookFile } from '../lib/utils'
 import { useAuth } from '../contexts/AuthContext'
@@ -229,12 +229,14 @@ function ProjectManagement() {
 
   const handleToggleMember = async (projectId: string, uid: string, add: boolean) => {
     try {
-      await updateDoc(doc(db, 'projects', projectId), {
+      const batch = writeBatch(db)
+      batch.update(doc(db, 'projects', projectId), {
         memberUids: add ? arrayUnion(uid) : arrayRemove(uid),
       })
-      await updateDoc(doc(db, 'users', uid), {
+      batch.update(doc(db, 'users', uid), {
         projectIds: add ? arrayUnion(projectId) : arrayRemove(projectId),
       })
+      await batch.commit()
       setProjects(prev => prev.map(p => {
         if (p.id !== projectId) return p
         const members = p.memberUids || []

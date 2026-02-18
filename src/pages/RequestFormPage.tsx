@@ -169,7 +169,7 @@ export default function RequestFormPage() {
   }
 
   const handleSubmit = async () => {
-    if (!user || !appUser) return
+    if (!user || !appUser || !currentProject) return
     setShowConfirm(false)
     setSubmitting(true)
 

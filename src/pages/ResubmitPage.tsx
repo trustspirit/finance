@@ -139,7 +139,7 @@ export default function ResubmitPage() {
   }
 
   const handleSubmit = async () => {
-    if (!user || !appUser || !original) return
+    if (!user || !appUser || !original || !currentProject) return
     setShowConfirm(false)
     setSubmitting(true)
 
