@@ -68,6 +68,11 @@ service cloud.firestore {
       allow write: if request.auth != null
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'finance'];
     }
+    match /projects/{projectId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
     match /settlements/{docId} {
       allow read: if request.auth != null
         && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'finance', 'approver_ops', 'approver_prep'];
@@ -84,7 +89,10 @@ service cloud.firestore {
 
 앱을 처음 사용할 때 브라우저 콘솔에 인덱스 생성 링크가 표시됩니다. 링크를 클릭하여 자동 생성하거나, 수동으로 생성:
 
-- Collection: `requests`, Fields: `requestedBy.uid` (ASC), `createdAt` (DESC)
+- Collection: `requests`, Fields: `projectId` (ASC), `requestedBy.uid` (ASC), `createdAt` (DESC)
+- Collection: `requests`, Fields: `projectId` (ASC), `createdAt` (DESC)
+- Collection: `requests`, Fields: `projectId` (ASC), `status` (ASC)
+- Collection: `settlements`, Fields: `projectId` (ASC), `createdAt` (DESC)
 
 ## 5. Google Drive API (영수증/통장사본 업로드)
 
@@ -121,9 +129,15 @@ Google Drive에서 세 개 폴더를 생성합니다:
 1. **우클릭 > 공유** > 서비스 계정 이메일 추가 (편집자 권한)
 2. 폴더 ID 복사 (URL에서 `folders/` 뒤의 문자열)
 
-### 5-4. Cloud Functions 환경 변수 설정
+### 5-4. Google Drive 폴더 설정
 
-`functions/.env` 파일 생성:
+**방법 A: 프로젝트별 설정 (권장)**
+
+웹 서비스의 **설정 > 프로젝트 설정** 탭에서 프로젝트를 편집하여 각 Drive 폴더 ID를 입력합니다. 프로젝트별로 다른 폴더를 사용할 수 있습니다.
+
+**방법 B: 환경 변수 (폴백)**
+
+프로젝트 설정이 없는 경우 `functions/.env` 파일의 값이 사용됩니다:
 
 ```
 GDRIVE_FOLDER_OPERATIONS=운영위원회_폴더ID
@@ -203,6 +217,8 @@ npm run seed:clear
 | `npm run preview` | 프로덕션 빌드 미리보기 |
 | `npm run seed` | Mock 데이터 생성 |
 | `npm run seed:clear` | Mock 데이터 삭제 |
+| `npm run migrate:projects` | 프로젝트 마이그레이션 (프로덕션) |
+| `npm run migrate:projects:emulator` | 프로젝트 마이그레이션 (에뮬레이터) |
 
 ## 7. 배포
 
@@ -246,7 +262,7 @@ firebase deploy --only functions
 | `approver_ops` | 운영위원회 승인자 | 운영위 신청 승인/반려, 정산 |
 | `approver_prep` | 준비위원회 승인자 | 준비위 신청 승인/반려, 정산 |
 | `finance` | 재정 담당 | 모든 위원회 승인/반려, 정산, 대시보드/예산 설정 |
-| `admin` | 관리자 | 모든 권한 + 사용자 관리 |
+| `admin` | 관리자 | 모든 권한 + 사용자 관리 + 프로젝트 관리 |
 
 역할별 권한 로직은 `src/lib/roles.ts`에서 관리합니다.
 
@@ -283,7 +299,8 @@ finanace/
 │   │   ├── labels.ts          # 라벨 상수 (deprecated, i18n 사용)
 │   │   └── sessions.ts        # 세션 목록
 │   ├── contexts/            # React Context
-│   │   └── AuthContext.tsx    # 인증 + 사용자 관리
+│   │   ├── AuthContext.tsx    # 인증 + 사용자 관리
+│   │   └── ProjectContext.tsx # 프로젝트 선택/전환 관리
 │   ├── lib/                 # 유틸리티
 │   │   ├── firebase.ts        # Firebase 설정 (에뮬레이터 자동 연결 포함)
 │   │   ├── i18n.ts            # i18next 설정
@@ -314,7 +331,8 @@ finanace/
 │   └── .env                   (gitignored)
 ├── scripts/                 # 유틸리티 스크립트
 │   ├── seed.ts                # Mock 데이터 생성
-│   └── clear.ts               # Mock 데이터 삭제
+│   ├── clear.ts               # Mock 데이터 삭제
+│   └── migrate-projects.ts   # 프로젝트 마이그레이션
 ├── firebase.json            # Firebase 설정 (호스팅 + Functions + 에뮬레이터)
 ├── .env.local               # Firebase 클라이언트 설정 (gitignored)
 ├── .env.emulator            # Firebase 에뮬레이터 설정
@@ -326,18 +344,24 @@ finanace/
 
 | 컬렉션 | 용도 |
 |--------|------|
-| `users` | 사용자 정보 (이름, 연락처, 은행, 통장사본, 서명, 권한) |
-| `requests` | 신청서 데이터 (항목, 영수증, 승인/정산 정보, 반려 사유, 비고) |
-| `settlements` | 정산 리포트 (신청자별 통합 항목/영수증, 승인자 정보) |
-| `settings` | 서비스 설정 (예산 등) |
+| `users` | 사용자 정보 (이름, 연락처, 은행, 통장사본, 서명, 권한, 할당된 프로젝트) |
+| `requests` | 신청서 데이터 (프로젝트ID, 항목, 영수증, 승인/정산 정보) |
+| `settlements` | 정산 리포트 (프로젝트ID, 신청자별 통합 항목/영수증) |
+| `projects` | 프로젝트(대회) 설정 (예산, Document No., Drive 폴더, 멤버) |
+| `settings` | 글로벌 설정 (기본 프로젝트 ID) |
 
 ## Google Drive 폴더 구조
 
-| 폴더 | 환경변수 | 용도 |
-|------|---------|------|
-| 영수증-운영위원회 | `GDRIVE_FOLDER_OPERATIONS` | Session Committee 영수증 |
-| 영수증-준비위원회 | `GDRIVE_FOLDER_PREPARATION` | Logistical Committee 영수증 |
-| 통장사본 | `GDRIVE_FOLDER_BANKBOOK` | 사용자 통장사본 |
+프로젝트별로 독립적인 Drive 폴더를 설정할 수 있습니다. **설정 > 프로젝트 설정**에서 각 프로젝트의 Drive 폴더 ID를 입력합니다.
+
+| 폴더 | 용도 | 설정 위치 |
+|------|------|-----------|
+| 영수증-운영위원회 | Session Committee 영수증 | 프로젝트 설정 > 운영위 폴더 ID |
+| 영수증-준비위원회 | Logistical Committee 영수증 | 프로젝트 설정 > 준비위 폴더 ID |
+| 통장사본 | 사용자 통장사본 | 프로젝트 설정 > 통장사본 폴더 ID |
+
+Drive 폴더 ID는 Google Drive URL에서 `folders/` 뒤의 문자열입니다.
+프로젝트 설정이 비어있으면 `functions/.env` 환경변수가 폴백으로 사용됩니다.
 
 ## 코드 분할 (Code Splitting)
 
