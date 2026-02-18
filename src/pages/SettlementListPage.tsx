@@ -19,6 +19,7 @@ export default function SettlementListPage() {
 
   useEffect(() => {
     if (!currentProject?.id) return
+    setLoading(true)
     const fetch = async () => {
       try {
         const q = query(

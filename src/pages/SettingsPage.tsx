@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { httpsCallable } from 'firebase/functions'
-import { collection, getDocs, doc, setDoc, deleteDoc, arrayUnion, arrayRemove, getDoc, serverTimestamp, writeBatch } from 'firebase/firestore'
+import { collection, getDocs, doc, setDoc, arrayUnion, arrayRemove, getDoc, serverTimestamp, writeBatch } from 'firebase/firestore'
 import { db, functions } from '../lib/firebase'
 import { formatPhone, fileToBase64, validateBankBookFile } from '../lib/utils'
 import { useAuth } from '../contexts/AuthContext'
@@ -187,7 +187,7 @@ function ProjectManagement() {
   const handleDelete = async (projectId: string) => {
     if (!confirm(t('common.confirm') + '?')) return
     try {
-      await deleteDoc(doc(db, 'projects', projectId))
+      await setDoc(doc(db, 'projects', projectId), { isActive: false }, { merge: true })
       setProjects(prev => prev.filter(p => p.id !== projectId))
       await refreshProjects()
     } catch (err) { console.error('Failed to delete project:', err) }

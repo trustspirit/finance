@@ -55,7 +55,7 @@ export default function RequestFormPage() {
   const { currentProject } = useProject()
   const navigate = useNavigate()
 
-  const draft = loadDraft()
+  const [draft] = useState(loadDraft)
 
   const [payee, setPayee] = useState(draft?.payee || appUser?.displayName || appUser?.name || '')
   const [phone, setPhone] = useState(draft?.phone || appUser?.phone || '')

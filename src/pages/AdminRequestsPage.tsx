@@ -29,6 +29,7 @@ export default function AdminRequestsPage() {
 
   useEffect(() => {
     if (!currentProject?.id) return
+    setLoading(true)
     const fetchRequests = async () => {
       try {
         const q = query(

@@ -43,12 +43,16 @@ export default function ResubmitPage() {
   const [errors, setErrors] = useState<string[]>([])
 
   useEffect(() => {
-    if (!id) return
+    if (!id || !currentProject?.id) return
     const fetch = async () => {
       try {
         const snap = await getDoc(doc(db, 'requests', id))
         if (snap.exists()) {
           const data = { id: snap.id, ...snap.data() } as PaymentRequest
+          if (currentProject && data.projectId !== currentProject.id) {
+            setLoading(false)
+            return
+          }
           setOriginal(data)
           setPayee(data.payee)
           setPhone(data.phone)
@@ -66,7 +70,8 @@ export default function ResubmitPage() {
       }
     }
     fetch()
-  }, [id])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, currentProject?.id])
 
   const totalAmount = items.reduce((sum, item) => sum + item.amount, 0)
   const validItems = items.filter((item) => item.description && item.amount > 0)

@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import { useTranslation } from 'react-i18next'
+import { useProject } from '../contexts/ProjectContext'
 import { formatFirestoreDate } from '../lib/utils'
 import { exportSettlementPdf } from '../lib/pdfExport'
 import { Settlement } from '../types'
@@ -16,23 +17,30 @@ import FinanceVerification from '../components/FinanceVerification'
 export default function SettlementReportPage() {
   const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
+  const { currentProject } = useProject()
   const [settlement, setSettlement] = useState<Settlement | null>(null)
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
   const [documentNo, setDocumentNo] = useState('')
+  const [projectName, setProjectName] = useState('')
 
   useEffect(() => {
-    if (!id) return
+    if (!id || !currentProject?.id) return
     const fetch = async () => {
       try {
         const snap = await getDoc(doc(db, 'settlements', id))
         if (snap.exists()) {
           const data = { id: snap.id, ...snap.data() } as Settlement
+          if (currentProject && data.projectId !== currentProject.id) {
+            setLoading(false)
+            return
+          }
           setSettlement(data)
           if (data.projectId) {
             const projectSnap = await getDoc(doc(db, 'projects', data.projectId))
             if (projectSnap.exists()) {
               setDocumentNo(projectSnap.data().documentNo || '')
+              setProjectName(projectSnap.data().name || '')
             }
           }
         }
@@ -43,12 +51,13 @@ export default function SettlementReportPage() {
       }
     }
     fetch()
-  }, [id])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, currentProject?.id])
 
   const handleExportPdf = async () => {
     if (!settlement) return
     setExporting(true)
-    const success = await exportSettlementPdf(settlement, documentNo)
+    const success = await exportSettlementPdf(settlement, documentNo, projectName)
     if (!success) alert('Popup blocked. Please allow popups for this site.')
     setExporting(false)
   }

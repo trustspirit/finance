@@ -22,6 +22,7 @@ export default function MyRequestsPage() {
 
   useEffect(() => {
     if (!user || !currentProject?.id) return
+    setLoading(true)
     const fetchRequests = async () => {
       try {
         setError(null)

@@ -158,7 +158,7 @@ export default function DashboardPage() {
       {budget.totalBudget > 0 && (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <h3 className="text-sm font-medium text-gray-700 mb-3">{t('dashboard.budgetOverview')}</h3>
-          <div className="flex flex-wrap items-end gap-8 mb-3">
+          <div className="flex flex-wrap items-end gap-6 mb-4">
             <div>
               <p className="text-xs text-gray-500">{t('dashboard.totalBudget')}</p>
               <p className="text-lg font-bold">₩{budget.totalBudget.toLocaleString()}</p>
@@ -177,14 +177,43 @@ export default function DashboardPage() {
                 ₩{remainingBudget.toLocaleString()}
               </p>
             </div>
+            <div>
+              <p className="text-xs text-gray-500">{t('dashboard.totalSpent')}</p>
+              <p className="text-lg font-bold text-gray-700">₩{stats.totalAmount.toLocaleString()}</p>
+            </div>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-3">
-            <div
-              className={`h-3 rounded-full transition-all ${usagePercent > 90 ? 'bg-red-500' : usagePercent > 70 ? 'bg-yellow-500' : 'bg-blue-500'}`}
-              style={{ width: `${Math.min(usagePercent, 100)}%` }}
-            />
+          {/* Approved usage bar */}
+          <div className="mb-2">
+            <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+              <span>{t('dashboard.used')}</span>
+              <span>{usagePercent}%</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-3">
+              <div
+                className={`h-3 rounded-full transition-all ${usagePercent > 90 ? 'bg-red-500' : usagePercent > 70 ? 'bg-yellow-500' : 'bg-blue-500'}`}
+                style={{ width: `${Math.min(usagePercent, 100)}%` }}
+              />
+            </div>
           </div>
-          <p className="text-xs text-gray-500 mt-1 text-right">{t('dashboard.usage', { percent: usagePercent })}</p>
+          {/* Pending + Approved combined bar */}
+          {stats.pendingAmount > 0 && (() => {
+            const combinedPercent = budget.totalBudget > 0 ? Math.round(((stats.approvedAmount + stats.pendingAmount) / budget.totalBudget) * 100) : 0
+            return (
+              <div>
+                <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                  <span>{t('dashboard.used')} + {t('dashboard.pendingAmount')}</span>
+                  <span>{combinedPercent}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-3">
+                  <div className="h-3 rounded-full flex overflow-hidden" style={{ width: `${Math.min(combinedPercent, 100)}%` }}>
+                    <div className={`${usagePercent > 90 ? 'bg-red-500' : usagePercent > 70 ? 'bg-yellow-500' : 'bg-blue-500'}`}
+                      style={{ width: `${combinedPercent > 0 ? Math.round((stats.approvedAmount / (stats.approvedAmount + stats.pendingAmount)) * 100) : 0}%` }} />
+                    <div className="bg-yellow-400" style={{ flex: 1 }} />
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
         </div>
       )}
 
@@ -229,14 +258,18 @@ export default function DashboardPage() {
                 <tr>
                   <th className="text-left py-2">Code</th>
                   <th className="text-right py-2">{t('dashboard.count')}</th>
-                  <th className="text-right py-2">{t('dashboard.approvedAmount')}</th>
                   {budget.totalBudget > 0 && <th className="text-right py-2">{t('dashboard.allocatedBudget')}</th>}
+                  <th className="text-right py-2">{t('dashboard.approvedAmount')}</th>
+                  {budget.totalBudget > 0 && <th className="text-right py-2">{t('dashboard.remaining')}</th>}
+                  {budget.totalBudget > 0 && <th className="text-right py-2 w-28">{t('dashboard.usage', { percent: '' }).replace('%', '')}</th>}
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {UNIQUE_BUDGET_CODES.map((code) => {
                   const data = stats.byBudgetCode[code] || { count: 0, amount: 0, approvedAmount: 0 }
                   const codeBudget = budget.byCode[code] || 0
+                  const codeRemaining = codeBudget - data.approvedAmount
+                  const codeUsage = codeBudget > 0 ? Math.round((data.approvedAmount / codeBudget) * 100) : 0
                   const over = codeBudget > 0 && data.approvedAmount > codeBudget
                   return (
                     <tr key={code}>
@@ -245,12 +278,34 @@ export default function DashboardPage() {
                         <span className="ml-2 text-gray-400 text-xs">{t(`budgetCode.${code}`)}</span>
                       </td>
                       <td className="py-2 text-right">{t('form.itemCount', { count: data.count })}</td>
+                      {budget.totalBudget > 0 && (
+                        <td className="py-2 text-right text-gray-500">
+                          {codeBudget > 0 ? `₩${codeBudget.toLocaleString()}` : '-'}
+                        </td>
+                      )}
                       <td className={`py-2 text-right ${over ? 'text-red-600 font-medium' : ''}`}>
                         ₩{data.approvedAmount.toLocaleString()}
                       </td>
                       {budget.totalBudget > 0 && (
-                        <td className="py-2 text-right text-gray-500">
-                          {codeBudget > 0 ? `₩${codeBudget.toLocaleString()}` : '-'}
+                        <td className={`py-2 text-right ${over ? 'text-red-600' : 'text-green-600'}`}>
+                          {codeBudget > 0 ? `₩${codeRemaining.toLocaleString()}` : '-'}
+                        </td>
+                      )}
+                      {budget.totalBudget > 0 && (
+                        <td className="py-2">
+                          {codeBudget > 0 ? (
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                <div
+                                  className={`h-2 rounded-full ${codeUsage > 90 ? 'bg-red-500' : codeUsage > 70 ? 'bg-yellow-500' : 'bg-blue-500'}`}
+                                  style={{ width: `${Math.min(codeUsage, 100)}%` }}
+                                />
+                              </div>
+                              <span className="text-xs text-gray-500 w-10 text-right">{codeUsage}%</span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-gray-400">-</span>
+                          )}
                         </td>
                       )}
                     </tr>
@@ -326,16 +381,34 @@ export default function DashboardPage() {
                   </tr>
                 ))}
               </tbody>
-              {editingBudget && (
-                <tfoot className="border-t">
-                  <tr>
-                    <td colSpan={2} className="py-2 text-right font-medium">{t('dashboard.codeTotal')}</td>
-                    <td className="py-2 text-right font-medium">
-                      ₩{Object.values(tempBudget.byCode).reduce((sum, v) => sum + (v || 0), 0).toLocaleString()}
-                    </td>
-                  </tr>
-                </tfoot>
-              )}
+              {(() => {
+                const currentBudget = editingBudget ? tempBudget : budget
+                const codeTotal = Object.values(currentBudget.byCode).reduce((sum, v) => sum + (v || 0), 0)
+                const diff = codeTotal - currentBudget.totalBudget
+                const hasTotal = currentBudget.totalBudget > 0
+                return (
+                  <tfoot className="border-t">
+                    <tr>
+                      <td colSpan={2} className="py-2 text-right font-medium">{t('dashboard.codeTotal')}</td>
+                      <td className="py-2 text-right font-bold">₩{codeTotal.toLocaleString()}</td>
+                    </tr>
+                    {hasTotal && diff !== 0 && (
+                      <tr>
+                        <td colSpan={2} className="py-2 text-right font-medium">{t('dashboard.difference')}</td>
+                        <td className={`py-2 text-right font-bold ${diff > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                          {diff > 0 ? '+' : ''}{`₩${diff.toLocaleString()}`}
+                        </td>
+                      </tr>
+                    )}
+                    {hasTotal && diff === 0 && (
+                      <tr>
+                        <td colSpan={2} className="py-2 text-right font-medium">{t('dashboard.difference')}</td>
+                        <td className="py-2 text-right font-bold text-green-600">₩0</td>
+                      </tr>
+                    )}
+                  </tfoot>
+                )
+              })()}
             </table>
           </div>
         </div>

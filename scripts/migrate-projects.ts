@@ -23,6 +23,31 @@ initializeApp({ projectId: 'finance-96f46' })
 const db = getFirestore()
 
 const DEFAULT_PROJECT_ID = 'default'
+const BATCH_LIMIT = 499
+
+async function batchUpdate(
+  docs: FirebaseFirestore.QueryDocumentSnapshot[],
+  updateFn: (doc: FirebaseFirestore.QueryDocumentSnapshot) => Record<string, unknown> | null
+) {
+  let count = 0
+  let batch = db.batch()
+  let ops = 0
+
+  for (const d of docs) {
+    const data = updateFn(d)
+    if (!data) continue
+    batch.update(d.ref, data)
+    ops++
+    count++
+    if (ops >= BATCH_LIMIT) {
+      await batch.commit()
+      batch = db.batch()
+      ops = 0
+    }
+  }
+  if (ops > 0) await batch.commit()
+  return count
+}
 
 async function migrate() {
   console.log(`Starting project migration (${useEmulator ? 'emulator' : 'production'})...`)
@@ -62,43 +87,24 @@ async function migrate() {
 
   // 3. Add projectId to all requests
   const reqSnap = await db.collection('requests').get()
-  let reqCount = 0
-  const batch1 = db.batch()
-  for (const doc of reqSnap.docs) {
-    if (!doc.data().projectId) {
-      batch1.update(doc.ref, { projectId: DEFAULT_PROJECT_ID })
-      reqCount++
-    }
-  }
-  if (reqCount > 0) await batch1.commit()
+  const reqCount = await batchUpdate(reqSnap.docs, (d) =>
+    d.data().projectId ? null : { projectId: DEFAULT_PROJECT_ID }
+  )
   console.log(`  Updated ${reqCount} requests`)
 
   // 4. Add projectId to all settlements
   const stlSnap = await db.collection('settlements').get()
-  let stlCount = 0
-  const batch2 = db.batch()
-  for (const doc of stlSnap.docs) {
-    if (!doc.data().projectId) {
-      batch2.update(doc.ref, { projectId: DEFAULT_PROJECT_ID })
-      stlCount++
-    }
-  }
-  if (stlCount > 0) await batch2.commit()
+  const stlCount = await batchUpdate(stlSnap.docs, (d) =>
+    d.data().projectId ? null : { projectId: DEFAULT_PROJECT_ID }
+  )
   console.log(`  Updated ${stlCount} settlements`)
 
   // 5. Add projectIds to all users and collect UIDs
   const userSnap = await db.collection('users').get()
-  const allUids: string[] = []
-  let userCount = 0
-  const batch3 = db.batch()
-  for (const doc of userSnap.docs) {
-    allUids.push(doc.id)
-    if (!doc.data().projectIds) {
-      batch3.update(doc.ref, { projectIds: [DEFAULT_PROJECT_ID] })
-      userCount++
-    }
-  }
-  if (userCount > 0) await batch3.commit()
+  const allUids = userSnap.docs.map(d => d.id)
+  const userCount = await batchUpdate(userSnap.docs, (d) =>
+    d.data().projectIds ? null : { projectIds: [DEFAULT_PROJECT_ID] }
+  )
   console.log(`  Updated ${userCount} users`)
 
   // Update project memberUids

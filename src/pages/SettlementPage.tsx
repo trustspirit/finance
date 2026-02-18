@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
-import { collection, query, where, getDocs, doc, serverTimestamp, writeBatch } from 'firebase/firestore'
+import { collection, query, where, getDocs, doc, serverTimestamp, writeBatch, getDoc } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import { useAuth } from '../contexts/AuthContext'
 import { useProject } from '../contexts/ProjectContext'
@@ -24,6 +24,7 @@ export default function SettlementPage() {
 
   useEffect(() => {
     if (!currentProject?.id) return
+    setLoading(true)
     const fetchApproved = async () => {
       try {
         const q = query(collection(db, 'requests'), where('projectId', '==', currentProject.id), where('status', '==', 'approved'))
@@ -104,6 +105,16 @@ export default function SettlementPage() {
         alert(t('settlement.settleFailed') + ': Too many operations. Please select fewer requests.')
         setProcessing(false)
         return
+      }
+
+      // Re-verify all selected requests are still 'approved' (prevent double-settlement)
+      for (const req of selectedRequests) {
+        const snap = await getDoc(doc(db, 'requests', req.id))
+        if (!snap.exists() || snap.data().status !== 'approved') {
+          alert(t('settlement.settleFailed') + ': ' + req.payee + ' - status changed')
+          setProcessing(false)
+          return
+        }
       }
 
       const batch = writeBatch(db)

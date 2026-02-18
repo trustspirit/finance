@@ -222,6 +222,30 @@ npm run seed:clear
 
 ## 7. 배포
 
+### 자동 배포 (GitHub Actions)
+
+`main` 브랜치에 push하면 GitHub Actions가 자동으로 빌드 및 배포합니다.
+
+워크플로우 파일: `.github/workflows/deploy.yml`
+
+**필요한 GitHub Secrets:**
+
+| Secret | 설명 |
+|--------|------|
+| `VITE_FIREBASE_API_KEY` | Firebase API 키 |
+| `VITE_FIREBASE_AUTH_DOMAIN` | Firebase Auth 도메인 |
+| `VITE_FIREBASE_PROJECT_ID` | Firebase 프로젝트 ID |
+| `VITE_FIREBASE_STORAGE_BUCKET` | Firebase Storage 버킷 |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID` | Firebase 메시징 Sender ID |
+| `VITE_FIREBASE_APP_ID` | Firebase 앱 ID |
+| `FIREBASE_TOKEN` | Firebase CLI 토큰 (`firebase login:ci`로 생성) |
+| `GDRIVE_FOLDER_OPERATIONS` | 운영위 영수증 Google Drive 폴더 ID |
+| `GDRIVE_FOLDER_PREPARATION` | 준비위 영수증 Google Drive 폴더 ID |
+
+> `docs/`, `scripts/`, `*.md`, `.gitignore` 변경 시에는 배포가 트리거되지 않습니다.
+
+### 수동 배포
+
 ```bash
 # Firebase CLI 로그인
 firebase login
@@ -272,8 +296,10 @@ firebase deploy --only functions
 
 ```
 finanace/
+├── .github/workflows/      # GitHub Actions CI/CD
+│   └── deploy.yml            # main push 시 자동 빌드/배포
 ├── src/
-│   ├── components/          # 공통 UI 컴포넌트 (20개)
+│   ├── components/          # 공통 UI 컴포넌트 (21개)
 │   │   ├── CommitteeSelect    # 위원회 라디오 선택
 │   │   ├── ConfirmModal       # 제출 확인 모달
 │   │   ├── DisplayNameModal   # 초기 가입 정보 입력
@@ -288,6 +314,7 @@ finanace/
 │   │   ├── Layout             # 네비게이션 레이아웃 (모바일 대응)
 │   │   ├── Modal              # 접근성 모달 (ESC, 포커스 트랩)
 │   │   ├── PageHeader         # 페이지 헤더
+│   │   ├── ProjectSelector    # 프로젝트 전환 드롭다운
 │   │   ├── ProtectedRoute     # 인증/권한 라우트 가드
 │   │   ├── ReceiptGallery     # 영수증 이미지 갤러리
 │   │   ├── SignatureBlock     # 신청자/승인자 서명 블록
@@ -337,7 +364,7 @@ finanace/
 ├── .env.local               # Firebase 클라이언트 설정 (gitignored)
 ├── .env.emulator            # Firebase 에뮬레이터 설정
 ├── README.md                # 사용자 가이드
-└── setup.md                 # 이 파일
+└── SETUP.md                 # 이 파일
 ```
 
 ## Firestore 컬렉션 구조
