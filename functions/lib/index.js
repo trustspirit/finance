@@ -1,0 +1,119 @@
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.uploadBankBook = exports.uploadReceipts = void 0;
+const functions = __importStar(require("firebase-functions"));
+const admin = __importStar(require("firebase-admin"));
+const googleapis_1 = require("googleapis");
+const stream_1 = require("stream");
+const path = __importStar(require("path"));
+admin.initializeApp();
+const SCOPES = ['https://www.googleapis.com/auth/drive.file'];
+const SERVICE_ACCOUNT_PATH = path.join(__dirname, '..', 'service-account.json');
+// Google Drive 폴더 ID
+const FOLDER_IDS = {
+    operations: process.env.GDRIVE_FOLDER_OPERATIONS || '',
+    preparation: process.env.GDRIVE_FOLDER_PREPARATION || '',
+    bankbook: process.env.GDRIVE_FOLDER_BANKBOOK || '',
+};
+function getDriveService() {
+    const auth = new googleapis_1.google.auth.GoogleAuth({
+        keyFile: SERVICE_ACCOUNT_PATH,
+        scopes: SCOPES,
+    });
+    return googleapis_1.google.drive({ version: 'v3', auth });
+}
+async function uploadFileToDrive(drive, file, folderId) {
+    const base64Data = file.data.split(',')[1];
+    const buffer = Buffer.from(base64Data, 'base64');
+    const mimeType = file.data.split(';')[0].split(':')[1];
+    const stream = new stream_1.Readable();
+    stream.push(buffer);
+    stream.push(null);
+    const response = await (await drive).files.create({
+        requestBody: {
+            name: `${Date.now()}_${file.name}`,
+            parents: [folderId],
+        },
+        media: { mimeType, body: stream },
+        fields: 'id, webViewLink',
+    });
+    await (await drive).permissions.create({
+        fileId: response.data.id,
+        requestBody: { role: 'reader', type: 'anyone' },
+    });
+    return {
+        fileName: file.name,
+        driveFileId: response.data.id,
+        driveUrl: response.data.webViewLink,
+    };
+}
+// 영수증 업로드
+exports.uploadReceipts = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'Must be logged in');
+    }
+    const { files, committee } = data;
+    if (!files || files.length === 0) {
+        throw new functions.https.HttpsError('invalid-argument', 'No files provided');
+    }
+    const folderId = FOLDER_IDS[committee] || '';
+    if (!folderId) {
+        throw new functions.https.HttpsError('invalid-argument', `Unknown committee: ${committee}`);
+    }
+    const drive = getDriveService();
+    const results = [];
+    for (const file of files) {
+        results.push(await uploadFileToDrive(drive, file, folderId));
+    }
+    return results;
+});
+// 통장사본 업로드
+exports.uploadBankBook = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'Must be logged in');
+    }
+    const { file } = data;
+    if (!file) {
+        throw new functions.https.HttpsError('invalid-argument', 'No file provided');
+    }
+    const folderId = FOLDER_IDS.bankbook || '';
+    if (!folderId) {
+        throw new functions.https.HttpsError('failed-precondition', 'Bankbook folder not configured');
+    }
+    const drive = getDriveService();
+    return await uploadFileToDrive(drive, file, folderId);
+});
+//# sourceMappingURL=index.js.map

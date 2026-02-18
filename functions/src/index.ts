@@ -67,12 +67,12 @@ async function uploadFileToDrive(drive: ReturnType<typeof getDriveService>, file
 
 // 영수증 업로드
 export const uploadReceipts = functions.https.onCall(
-  async (request: functions.https.CallableRequest<{ files: FileInput[]; committee: string }>) => {
-    if (!request.auth) {
+  async (data: { files: FileInput[]; committee: string }, context: functions.https.CallableContext) => {
+    if (!context.auth) {
       throw new functions.https.HttpsError('unauthenticated', 'Must be logged in')
     }
 
-    const { files, committee } = request.data
+    const { files, committee } = data
     if (!files || files.length === 0) {
       throw new functions.https.HttpsError('invalid-argument', 'No files provided')
     }
@@ -93,12 +93,12 @@ export const uploadReceipts = functions.https.onCall(
 
 // 통장사본 업로드
 export const uploadBankBook = functions.https.onCall(
-  async (request: functions.https.CallableRequest<{ file: FileInput }>) => {
-    if (!request.auth) {
+  async (data: { file: FileInput }, context: functions.https.CallableContext) => {
+    if (!context.auth) {
       throw new functions.https.HttpsError('unauthenticated', 'Must be logged in')
     }
 
-    const { file } = request.data
+    const { file } = data
     if (!file) {
       throw new functions.https.HttpsError('invalid-argument', 'No file provided')
     }
