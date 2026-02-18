@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { Committee } from '../types'
 import Layout from '../components/Layout'
 import SignaturePad from '../components/SignaturePad'
+import CommitteeSelect from '../components/CommitteeSelect'
 
 export default function SettingsPage() {
   const { appUser, updateAppUser } = useAuth()
@@ -163,19 +164,8 @@ export default function SettingsPage() {
         </div>
 
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">기본 위원회</label>
-          <div className="flex gap-4 mt-1">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="radio" name="default-committee" value="operations"
-                checked={defaultCommittee === 'operations'} onChange={() => setDefaultCommittee('operations')} />
-              <span className="text-sm">운영 위원회</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="radio" name="default-committee" value="preparation"
-                checked={defaultCommittee === 'preparation'} onChange={() => setDefaultCommittee('preparation')} />
-              <span className="text-sm">준비 위원회</span>
-            </label>
-          </div>
+          <CommitteeSelect value={defaultCommittee} onChange={setDefaultCommittee}
+            name="default-committee" label="기본 위원회" />
           <p className="text-xs text-gray-400 mt-1">신청서 작성 시 기본 선택됩니다.</p>
         </div>
 

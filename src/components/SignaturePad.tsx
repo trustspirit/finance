@@ -33,7 +33,8 @@ export default function SignaturePad({ width = 400, height = 150, initialData, o
     if (initialData) {
       const img = new Image()
       img.onload = () => {
-        ctx.drawImage(img, 0, 0)
+        const currentCtx = getCtx()
+        if (currentCtx) currentCtx.drawImage(img, 0, 0)
       }
       img.src = initialData
     }

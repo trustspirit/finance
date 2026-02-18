@@ -8,6 +8,7 @@ import { BUDGET_CODE_LABELS } from '../constants/budgetCodes'
 import { COMMITTEE_LABELS } from '../constants/labels'
 import Layout from '../components/Layout'
 import Spinner from '../components/Spinner'
+import InfoGrid from '../components/InfoGrid'
 
 export default function SettlementReportPage() {
   const { id } = useParams<{ id: string }>()
@@ -32,6 +33,9 @@ export default function SettlementReportPage() {
     }
     fetch()
   }, [id])
+
+  const escapeHtml = (str: string) =>
+    str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
   const handleExportPdf = async () => {
     if (!settlement) return
@@ -100,11 +104,11 @@ export default function SettlementReportPage() {
   <p class="subtitle">Payment / Reimbursement Settlement Report</p>
 
   <div class="info-grid">
-    <div><span class="label">신청자:</span> ${settlement.payee}</div>
-    <div><span class="label">정산일:</span> ${dateStr}</div>
-    <div><span class="label">전화번호:</span> ${settlement.phone}</div>
-    <div><span class="label">세션:</span> ${settlement.session}</div>
-    <div><span class="label">은행:</span> ${settlement.bankName} ${settlement.bankAccount}</div>
+    <div><span class="label">신청자:</span> ${escapeHtml(settlement.payee)}</div>
+    <div><span class="label">정산일:</span> ${escapeHtml(dateStr)}</div>
+    <div><span class="label">전화번호:</span> ${escapeHtml(settlement.phone)}</div>
+    <div><span class="label">세션:</span> ${escapeHtml(settlement.session)}</div>
+    <div><span class="label">은행:</span> ${escapeHtml(settlement.bankName)} ${escapeHtml(settlement.bankAccount)}</div>
     <div><span class="label">위원회:</span> ${COMMITTEE_LABELS[settlement.committee]}</div>
   </div>
 
@@ -121,7 +125,7 @@ export default function SettlementReportPage() {
       ${settlement.items.map((item, i) => `
         <tr>
           <td>${i + 1}</td>
-          <td>${item.description}</td>
+          <td>${escapeHtml(item.description)}</td>
           <td>${item.budgetCode} (${BUDGET_CODE_LABELS[item.budgetCode] || ''})</td>
           <td class="text-right">₩${item.amount.toLocaleString()}</td>
         </tr>
@@ -148,8 +152,8 @@ export default function SettlementReportPage() {
   <div class="receipt-page">
     <h2>첨부 영수증</h2>
     ${images.map((img) => img.dataUrl
-      ? `<div><p class="receipt-name">${img.fileName}</p><img class="receipt-img" src="${img.dataUrl}" /></div>`
-      : `<div><p class="receipt-name">${img.fileName}</p><p class="receipt-link">이미지를 불러올 수 없습니다. Google Drive에서 직접 확인해주세요.</p></div>`
+      ? `<div><p class="receipt-name">${escapeHtml(img.fileName)}</p><img class="receipt-img" src="${img.dataUrl}" /></div>`
+      : `<div><p class="receipt-name">${escapeHtml(img.fileName)}</p><p class="receipt-link">이미지를 불러올 수 없습니다. Google Drive에서 직접 확인해주세요.</p></div>`
     ).join('')}
   </div>
   ` : ''}
@@ -190,14 +194,14 @@ export default function SettlementReportPage() {
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
-          <div><span className="text-gray-500">신청자:</span> {settlement.payee}</div>
-          <div><span className="text-gray-500">정산일:</span> {dateStr}</div>
-          <div><span className="text-gray-500">전화번호:</span> {settlement.phone}</div>
-          <div><span className="text-gray-500">세션:</span> {settlement.session}</div>
-          <div><span className="text-gray-500">은행 / 계좌:</span> {settlement.bankName} {settlement.bankAccount}</div>
-          <div><span className="text-gray-500">위원회:</span> {COMMITTEE_LABELS[settlement.committee]}</div>
-        </div>
+        <InfoGrid className="mb-6" items={[
+          { label: '신청자', value: settlement.payee },
+          { label: '정산일', value: dateStr },
+          { label: '전화번호', value: settlement.phone },
+          { label: '세션', value: settlement.session },
+          { label: '은행 / 계좌', value: `${settlement.bankName} ${settlement.bankAccount}` },
+          { label: '위원회', value: COMMITTEE_LABELS[settlement.committee] },
+        ]} />
 
         <div className="mb-2 text-sm text-gray-500">
           통합 신청 건수: {settlement.requestIds.length}건

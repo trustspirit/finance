@@ -3,6 +3,8 @@ import { useAuth } from '../contexts/AuthContext'
 import { Committee } from '../types'
 import { formatPhone } from '../lib/utils'
 import ErrorAlert from './ErrorAlert'
+import CommitteeSelect from './CommitteeSelect'
+import FormField from './FormField'
 
 export default function DisplayNameModal() {
   const { appUser, updateAppUser, setNeedsDisplayName } = useAuth()
@@ -59,57 +61,32 @@ export default function DisplayNameModal() {
         <ErrorAlert errors={errors} />
 
         <div className="space-y-3">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              선호하는 이름 <span className="text-red-500">*</span>
-            </label>
+          <FormField label="선호하는 이름" required>
             <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)}
               placeholder="예: 홍길동" autoFocus
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
-          </div>
+          </FormField>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              전화번호 <span className="text-red-500">*</span>
-            </label>
+          <FormField label="전화번호" required>
             <input type="tel" value={phone} onChange={(e) => setPhone(formatPhone(e.target.value))}
               placeholder="010-0000-0000"
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
-          </div>
+          </FormField>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              은행 <span className="text-red-500">*</span>
-            </label>
+          <FormField label="은행" required>
             <input type="text" value={bankName} onChange={(e) => setBankName(e.target.value)}
               placeholder="예: 국민은행"
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
-          </div>
+          </FormField>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              계좌번호 <span className="text-red-500">*</span>
-            </label>
+          <FormField label="계좌번호" required>
             <input type="text" value={bankAccount} onChange={(e) => setBankAccount(e.target.value)}
               placeholder="예: 123-456-789012"
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
-          </div>
+          </FormField>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">소속 위원회</label>
-            <div className="flex gap-4 mt-1">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="radio" name="init-committee" value="operations"
-                  checked={committee === 'operations'} onChange={() => setCommittee('operations')} />
-                <span className="text-sm">운영 위원회</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="radio" name="init-committee" value="preparation"
-                  checked={committee === 'preparation'} onChange={() => setCommittee('preparation')} />
-                <span className="text-sm">준비 위원회</span>
-              </label>
-            </div>
-          </div>
+          <CommitteeSelect value={committee} onChange={setCommittee}
+            name="init-committee" label="소속 위원회" />
         </div>
 
         <button onClick={handleSave} disabled={saving}

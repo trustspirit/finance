@@ -8,6 +8,8 @@ import { COMMITTEE_LABELS } from '../constants/labels'
 import Layout from '../components/Layout'
 import StatusBadge from '../components/StatusBadge'
 import Spinner from '../components/Spinner'
+import InfoGrid from '../components/InfoGrid'
+import ReceiptGallery from '../components/ReceiptGallery'
 
 export default function RequestDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -24,7 +26,6 @@ export default function RequestDetailPage() {
       if (snap.exists()) {
         const data = { id: snap.id, ...snap.data() } as PaymentRequest
         setRequest(data)
-        // Fetch requester profile for bank book
         const userSnap = await getDoc(doc(db, 'users', data.requestedBy.uid))
         if (userSnap.exists()) {
           setRequester(userSnap.data() as AppUser)
@@ -49,68 +50,45 @@ export default function RequestDetailPage() {
           <StatusBadge status={request.status} />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6 text-sm">
-          <div><span className="text-gray-500">신청자:</span> {request.payee}</div>
-          <div><span className="text-gray-500">날짜:</span> {request.date}</div>
-          <div><span className="text-gray-500">전화번호:</span> {request.phone}</div>
-          <div><span className="text-gray-500">세션:</span> {request.session}</div>
-          <div><span className="text-gray-500">은행 / 계좌:</span> {request.bankName} {request.bankAccount}</div>
-          <div><span className="text-gray-500">위원회:</span> {COMMITTEE_LABELS[request.committee]}</div>
-        </div>
+        <InfoGrid className="mb-6" items={[
+          { label: '신청자', value: request.payee },
+          { label: '날짜', value: request.date },
+          { label: '전화번호', value: request.phone },
+          { label: '세션', value: request.session },
+          { label: '은행 / 계좌', value: `${request.bankName} ${request.bankAccount}` },
+          { label: '위원회', value: COMMITTEE_LABELS[request.committee] },
+        ]} />
 
         <div className="overflow-x-auto mb-6">
-        <table className="w-full text-sm">
-          <thead className="border-b bg-gray-50">
-            <tr>
-              <th className="text-left px-3 py-2">#</th>
-              <th className="text-left px-3 py-2">설명</th>
-              <th className="text-left px-3 py-2">예산 코드</th>
-              <th className="text-right px-3 py-2">금액</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {request.items.map((item, i) => (
-              <tr key={i}>
-                <td className="px-3 py-2">{i + 1}</td>
-                <td className="px-3 py-2">{item.description}</td>
-                <td className="px-3 py-2">{item.budgetCode}</td>
-                <td className="px-3 py-2 text-right">₩{item.amount.toLocaleString()}</td>
+          <table className="w-full text-sm">
+            <thead className="border-b bg-gray-50">
+              <tr>
+                <th className="text-left px-3 py-2">#</th>
+                <th className="text-left px-3 py-2">설명</th>
+                <th className="text-left px-3 py-2">예산 코드</th>
+                <th className="text-right px-3 py-2">금액</th>
               </tr>
-            ))}
-          </tbody>
-          <tfoot className="border-t font-medium">
-            <tr>
-              <td colSpan={3} className="px-3 py-2 text-right">합계</td>
-              <td className="px-3 py-2 text-right">₩{request.totalAmount.toLocaleString()}</td>
-            </tr>
-          </tfoot>
-        </table>
+            </thead>
+            <tbody className="divide-y">
+              {request.items.map((item, i) => (
+                <tr key={i}>
+                  <td className="px-3 py-2">{i + 1}</td>
+                  <td className="px-3 py-2">{item.description}</td>
+                  <td className="px-3 py-2">{item.budgetCode}</td>
+                  <td className="px-3 py-2 text-right">₩{item.amount.toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="border-t font-medium">
+              <tr>
+                <td colSpan={3} className="px-3 py-2 text-right">합계</td>
+                <td className="px-3 py-2 text-right">₩{request.totalAmount.toLocaleString()}</td>
+              </tr>
+            </tfoot>
+          </table>
         </div>
 
-        {/* 영수증 - 이미지 미리보기 포함 */}
-        {request.receipts.length > 0 && (
-          <div className="mb-6">
-            <h3 className="text-sm font-medium text-gray-700 mb-3">영수증 ({request.receipts.length}개)</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {request.receipts.map((r, i) => (
-                <div key={i} className="border border-gray-200 rounded-lg overflow-hidden">
-                  <a href={r.driveUrl} target="_blank" rel="noopener noreferrer">
-                    <img
-                      src={`https://drive.google.com/thumbnail?id=${r.driveFileId}&sz=w400`}
-                      alt={r.fileName}
-                      className="w-full h-48 object-contain bg-gray-50"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
-                    />
-                  </a>
-                  <div className="px-3 py-2 bg-gray-50 border-t">
-                    <a href={r.driveUrl} target="_blank" rel="noopener noreferrer"
-                      className="text-xs text-blue-600 hover:underline truncate block">{r.fileName}</a>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        <ReceiptGallery receipts={request.receipts} />
 
         {/* 통장사본 */}
         {requester?.bankBookDriveUrl && (
@@ -119,14 +97,10 @@ export default function RequestDetailPage() {
             <div className="border border-gray-200 rounded-lg overflow-hidden inline-block">
               <a href={requester.bankBookDriveUrl} target="_blank" rel="noopener noreferrer">
                 {requester.bankBookImage ? (
-                  <img src={requester.bankBookImage} alt="통장사본"
-                    className="max-h-48 object-contain bg-gray-50" />
+                  <img src={requester.bankBookImage} alt="통장사본" className="max-h-48 object-contain bg-gray-50" />
                 ) : (
-                  <img
-                    src={`https://drive.google.com/thumbnail?id=${requester.bankBookDriveId}&sz=w400`}
-                    alt="통장사본"
-                    className="max-h-48 object-contain bg-gray-50"
-                  />
+                  <img src={`https://drive.google.com/thumbnail?id=${requester.bankBookDriveId}&sz=w400`}
+                    alt="통장사본" className="max-h-48 object-contain bg-gray-50" />
                 )}
               </a>
               <div className="px-3 py-2 bg-gray-50 border-t">
@@ -144,7 +118,6 @@ export default function RequestDetailPage() {
           </div>
         )}
 
-        {/* 반려 사유 */}
         {request.status === 'rejected' && request.rejectionReason && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
             <h3 className="text-sm font-medium text-red-800 mb-1">반려 사유</h3>
@@ -152,26 +125,19 @@ export default function RequestDetailPage() {
           </div>
         )}
 
-        {/* 수정 후 재신청 버튼 (본인의 반려된 신청서만) */}
         {request.status === 'rejected' && user?.uid === request.requestedBy.uid && (
           <div className="mb-6">
-            <button
-              onClick={() => navigate(`/request/resubmit/${request.id}`)}
+            <button onClick={() => navigate(`/request/resubmit/${request.id}`)}
               className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700">
               수정 후 재신청
             </button>
           </div>
         )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm border-t pt-4">
-          <div>
-            <span className="text-gray-500">신청자:</span> {request.requestedBy.name} ({request.requestedBy.email})
-          </div>
-          <div>
-            <span className="text-gray-500">승인자:</span>{' '}
-            {request.approvedBy ? `${request.approvedBy.name} (${request.approvedBy.email})` : '-'}
-          </div>
-        </div>
+        <InfoGrid className="border-t pt-4" items={[
+          { label: '신청자', value: `${request.requestedBy.name} (${request.requestedBy.email})` },
+          { label: '승인자', value: request.approvedBy ? `${request.approvedBy.name} (${request.approvedBy.email})` : '-' },
+        ]} />
 
         {request.approvalSignature && (
           <div className="mt-4 pt-4 border-t">

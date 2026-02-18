@@ -9,7 +9,10 @@ import { RequestItem, Receipt, Committee } from '../types'
 import Layout from '../components/Layout'
 import ItemRow from '../components/ItemRow'
 import ErrorAlert from '../components/ErrorAlert'
-import { formatPhone, fileToBase64, validateFiles } from '../lib/utils'
+import FileUpload from '../components/FileUpload'
+import CommitteeSelect from '../components/CommitteeSelect'
+import ConfirmModal from '../components/ConfirmModal'
+import { formatPhone, fileToBase64 } from '../lib/utils'
 import { COMMITTEE_LABELS } from '../constants/labels'
 
 const DRAFT_KEY = 'request-form-draft'
@@ -60,7 +63,6 @@ export default function RequestFormPage() {
   const [committee, setCommittee] = useState<Committee>(draft?.committee || appUser?.defaultCommittee || 'operations')
   const [items, setItems] = useState<RequestItem[]>(draft?.items?.length ? draft.items : [emptyItem()])
   const [files, setFiles] = useState<File[]>([])
-  const [fileErrors, setFileErrors] = useState<string[]>([])
   const [comments, setComments] = useState(draft?.comments || '')
   const [submitting, setSubmitting] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
@@ -298,21 +300,7 @@ export default function RequestFormPage() {
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
           </div>
           <div className="sm:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">위원회 (Committee)</label>
-            <div className="flex gap-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="radio" name="committee" value="operations"
-                  checked={committee === 'operations'} onChange={() => setCommittee('operations')}
-                  className="text-blue-600" />
-                <span className="text-sm">운영 위원회</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="radio" name="committee" value="preparation"
-                  checked={committee === 'preparation'} onChange={() => setCommittee('preparation')}
-                  className="text-blue-600" />
-                <span className="text-sm">준비 위원회</span>
-              </label>
-            </div>
+            <CommitteeSelect value={committee} onChange={setCommittee} />
           </div>
         </div>
 
@@ -337,40 +325,7 @@ export default function RequestFormPage() {
           </div>
         </div>
 
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            영수증 (Receipts) <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="file"
-            multiple
-            accept=".png,.jpg,.jpeg,.pdf"
-            onChange={(e) => {
-              const selected = Array.from(e.target.files || [])
-              const { valid, errors: fileErrs } = validateFiles(selected)
-              setFileErrors(fileErrs)
-              setFiles(valid)
-              if (fileErrs.length > 0) e.target.value = ''
-            }}
-            className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-          />
-          <p className="text-xs text-gray-400 mt-1">PNG, JPG, PDF 파일만 가능 (파일당 최대 2MB)</p>
-          {fileErrors.length > 0 && (
-            <ul className="mt-2 text-sm text-red-600 space-y-1">
-              {fileErrors.map((err, i) => <li key={i}>{err}</li>)}
-            </ul>
-          )}
-          {files.length > 0 && (
-            <ul className="mt-2 text-sm text-gray-600">
-              {files.map((f, i) => (
-                <li key={i} className="flex items-center gap-2">
-                  <span>{f.name}</span>
-                  <span className="text-xs text-gray-400">({(f.size / 1024).toFixed(0)}KB)</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        <FileUpload files={files} onFilesChange={setFiles} />
 
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 mb-1">비고 (Comments)</label>
@@ -386,62 +341,22 @@ export default function RequestFormPage() {
         </div>
       </form>
 
-      {/* 제출 확인 모달 */}
-      {showConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md mx-4">
-            <h3 className="text-lg font-bold mb-4">신청서 제출 확인</h3>
-
-            <div className="text-sm space-y-2 mb-4">
-              <div className="flex justify-between">
-                <span className="text-gray-500">신청자</span>
-                <span>{payee}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">날짜</span>
-                <span>{date}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">은행 / 계좌</span>
-                <span>{bankName} {bankAccount}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">위원회</span>
-                <span>{COMMITTEE_LABELS[committee]}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">항목 수</span>
-                <span>{validItems.length}건</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">영수증</span>
-                <span>{files.length}개 파일</span>
-              </div>
-            </div>
-
-            <div className="bg-blue-50 border border-blue-200 rounded p-3 mb-4">
-              <div className="flex justify-between text-sm font-medium">
-                <span>항목 총액</span>
-                <span>₩{totalAmount.toLocaleString()}</span>
-              </div>
-              <p className="text-xs text-blue-600 mt-2">
-                영수증 금액과 항목 총액(₩{totalAmount.toLocaleString()})이 일치하는지 확인해주세요.
-              </p>
-            </div>
-
-            <div className="flex gap-3 justify-end">
-              <button onClick={() => setShowConfirm(false)}
-                className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-50">
-                취소
-              </button>
-              <button onClick={handleSubmit}
-                className="px-4 py-2 text-sm text-white bg-blue-600 rounded hover:bg-blue-700">
-                확인 및 제출
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        open={showConfirm}
+        onClose={() => setShowConfirm(false)}
+        onConfirm={handleSubmit}
+        title="신청서 제출 확인"
+        items={[
+          { label: '신청자', value: payee },
+          { label: '날짜', value: date },
+          { label: '은행 / 계좌', value: `${bankName} ${bankAccount}` },
+          { label: '위원회', value: COMMITTEE_LABELS[committee] },
+          { label: '항목 수', value: `${validItems.length}건` },
+          { label: '영수증', value: `${files.length}개 파일` },
+        ]}
+        totalAmount={totalAmount}
+        confirmLabel="확인 및 제출"
+      />
 
       {/* 페이지 이동 확인 모달 */}
       {blocker.state === 'blocked' && (

@@ -8,7 +8,10 @@ import { updateDoc } from 'firebase/firestore'
 import { RequestItem, Receipt, Committee, PaymentRequest } from '../types'
 import Layout from '../components/Layout'
 import ItemRow from '../components/ItemRow'
-import { formatPhone, fileToBase64, validateFiles } from '../lib/utils'
+import FileUpload from '../components/FileUpload'
+import CommitteeSelect from '../components/CommitteeSelect'
+import ConfirmModal from '../components/ConfirmModal'
+import { formatPhone, fileToBase64 } from '../lib/utils'
 import ErrorAlert from '../components/ErrorAlert'
 
 const emptyItem = (): RequestItem => ({ description: '', budgetCode: 0, amount: 0 })
@@ -29,7 +32,6 @@ export default function ResubmitPage() {
   const [committee, setCommittee] = useState<Committee>('operations')
   const [items, setItems] = useState<RequestItem[]>([emptyItem()])
   const [files, setFiles] = useState<File[]>([])
-  const [fileErrors, setFileErrors] = useState<string[]>([])
   const [comments, setComments] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
@@ -238,19 +240,7 @@ export default function ResubmitPage() {
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
           </div>
           <div className="col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">위원회</label>
-            <div className="flex gap-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="radio" name="committee" value="operations"
-                  checked={committee === 'operations'} onChange={() => setCommittee('operations')} />
-                <span className="text-sm">운영 위원회</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="radio" name="committee" value="preparation"
-                  checked={committee === 'preparation'} onChange={() => setCommittee('preparation')} />
-                <span className="text-sm">준비 위원회</span>
-              </label>
-            </div>
+            <CommitteeSelect value={committee} onChange={setCommittee} />
           </div>
         </div>
 
@@ -271,36 +261,13 @@ export default function ResubmitPage() {
           </div>
         </div>
 
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-1">영수증</label>
-          {original.receipts.length > 0 && files.length === 0 && (
-            <div className="mb-2 p-2 bg-gray-50 border border-gray-200 rounded text-sm text-gray-600">
-              기존 영수증 {original.receipts.length}개가 유지됩니다. 새 파일을 선택하면 교체됩니다.
-            </div>
-          )}
-          <input type="file" multiple accept=".png,.jpg,.jpeg,.pdf"
-            onChange={(e) => {
-              const selected = Array.from(e.target.files || [])
-              const { valid, errors: fileErrs } = validateFiles(selected)
-              setFileErrors(fileErrs)
-              setFiles(valid)
-            }}
-            className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700"
-          />
-          <p className="text-xs text-gray-400 mt-1">PNG, JPG, PDF (파일당 최대 2MB)</p>
-          {fileErrors.length > 0 && (
-            <ul className="mt-2 text-sm text-red-600 space-y-1">
-              {fileErrors.map((err, i) => <li key={i}>{err}</li>)}
-            </ul>
-          )}
-          {files.length > 0 && (
-            <ul className="mt-2 text-sm text-gray-600">
-              {files.map((f, i) => (
-                <li key={i}>{f.name} <span className="text-xs text-gray-400">({(f.size / 1024).toFixed(0)}KB)</span></li>
-              ))}
-            </ul>
-          )}
-        </div>
+        <FileUpload
+          files={files}
+          onFilesChange={setFiles}
+          label="영수증"
+          existingCount={original.receipts.length}
+          existingLabel={`기존 영수증 ${original.receipts.length}개가 유지됩니다. 새 파일을 선택하면 교체됩니다.`}
+        />
 
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 mb-1">비고</label>
@@ -317,29 +284,19 @@ export default function ResubmitPage() {
         </div>
       </form>
 
-      {showConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md mx-4">
-            <h3 className="text-lg font-bold mb-4">재신청 확인</h3>
-            <div className="text-sm space-y-2 mb-4">
-              <div className="flex justify-between"><span className="text-gray-500">신청자</span><span>{payee}</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">항목 수</span><span>{validItems.length}건</span></div>
-              <div className="flex justify-between"><span className="text-gray-500">영수증</span><span>{files.length > 0 ? `${files.length}개 (새 파일)` : `${original.receipts.length}개 (기존 유지)`}</span></div>
-            </div>
-            <div className="bg-blue-50 border border-blue-200 rounded p-3 mb-4">
-              <div className="flex justify-between text-sm font-medium">
-                <span>항목 총액</span><span>₩{totalAmount.toLocaleString()}</span>
-              </div>
-            </div>
-            <div className="flex gap-3 justify-end">
-              <button onClick={() => setShowConfirm(false)}
-                className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-50">취소</button>
-              <button onClick={handleSubmit}
-                className="px-4 py-2 text-sm text-white bg-blue-600 rounded hover:bg-blue-700">확인 및 재신청</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ConfirmModal
+        open={showConfirm}
+        onClose={() => setShowConfirm(false)}
+        onConfirm={handleSubmit}
+        title="재신청 확인"
+        items={[
+          { label: '신청자', value: payee },
+          { label: '항목 수', value: `${validItems.length}건` },
+          { label: '영수증', value: files.length > 0 ? `${files.length}개 (새 파일)` : `${original.receipts.length}개 (기존 유지)` },
+        ]}
+        totalAmount={totalAmount}
+        confirmLabel="확인 및 재신청"
+      />
     </Layout>
   )
 }
