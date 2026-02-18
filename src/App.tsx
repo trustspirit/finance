@@ -1,27 +1,31 @@
+import { lazy, Suspense } from 'react'
 import { createBrowserRouter, RouterProvider, Navigate, Outlet } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import DisplayNameModal from './components/DisplayNameModal'
-import LoginPage from './pages/LoginPage'
-import RequestFormPage from './pages/RequestFormPage'
-import MyRequestsPage from './pages/MyRequestsPage'
-import RequestDetailPage from './pages/RequestDetailPage'
-import AdminRequestsPage from './pages/AdminRequestsPage'
-import DashboardPage from './pages/DashboardPage'
-import AdminUsersPage from './pages/AdminUsersPage'
-import SettingsPage from './pages/SettingsPage'
-import SettlementPage from './pages/SettlementPage'
-import SettlementListPage from './pages/SettlementListPage'
-import SettlementReportPage from './pages/SettlementReportPage'
-import ResubmitPage from './pages/ResubmitPage'
+import Spinner from './components/Spinner'
+
+// Lazy-loaded pages
+const LoginPage = lazy(() => import('./pages/LoginPage'))
+const RequestFormPage = lazy(() => import('./pages/RequestFormPage'))
+const MyRequestsPage = lazy(() => import('./pages/MyRequestsPage'))
+const RequestDetailPage = lazy(() => import('./pages/RequestDetailPage'))
+const AdminRequestsPage = lazy(() => import('./pages/AdminRequestsPage'))
+const DashboardPage = lazy(() => import('./pages/DashboardPage'))
+const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'))
+const SettingsPage = lazy(() => import('./pages/SettingsPage'))
+const SettlementPage = lazy(() => import('./pages/SettlementPage'))
+const SettlementListPage = lazy(() => import('./pages/SettlementListPage'))
+const SettlementReportPage = lazy(() => import('./pages/SettlementReportPage'))
+const ResubmitPage = lazy(() => import('./pages/ResubmitPage'))
 
 function AppLayout() {
   const { needsDisplayName, user } = useAuth()
   return (
-    <>
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><Spinner /></div>}>
       {user && needsDisplayName && <DisplayNameModal />}
       <Outlet />
-    </>
+    </Suspense>
   )
 }
 

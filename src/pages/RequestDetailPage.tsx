@@ -9,6 +9,7 @@ import Layout from '../components/Layout'
 import StatusBadge from '../components/StatusBadge'
 import Spinner from '../components/Spinner'
 import InfoGrid from '../components/InfoGrid'
+import ItemsTable from '../components/ItemsTable'
 import ReceiptGallery from '../components/ReceiptGallery'
 
 export default function RequestDetailPage() {
@@ -60,34 +61,7 @@ export default function RequestDetailPage() {
           { label: t('committee.label'), value: t(`committee.${request.committee}`) },
         ]} />
 
-        <div className="overflow-x-auto mb-6">
-          <table className="w-full text-sm">
-            <thead className="border-b bg-gray-50">
-              <tr>
-                <th className="text-left px-3 py-2">#</th>
-                <th className="text-left px-3 py-2">{t('field.comments')}</th>
-                <th className="text-left px-3 py-2">Budget Code</th>
-                <th className="text-right px-3 py-2">{t('field.totalAmount')}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {request.items.map((item, i) => (
-                <tr key={i}>
-                  <td className="px-3 py-2">{i + 1}</td>
-                  <td className="px-3 py-2">{item.description}</td>
-                  <td className="px-3 py-2">{item.budgetCode}</td>
-                  <td className="px-3 py-2 text-right">₩{item.amount.toLocaleString()}</td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot className="border-t font-medium">
-              <tr>
-                <td colSpan={3} className="px-3 py-2 text-right">{t('field.totalAmount')}</td>
-                <td className="px-3 py-2 text-right">₩{request.totalAmount.toLocaleString()}</td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
+        <ItemsTable items={request.items} totalAmount={request.totalAmount} />
 
         <ReceiptGallery receipts={request.receipts} />
 
