@@ -4,7 +4,7 @@
 
 ## 기술 스택
 
-- **프론트엔드:** React 18 + Vite + TypeScript + Tailwind CSS
+- **프론트엔드:** React 19 + Vite 7 + TypeScript + Tailwind CSS 4
 - **다국어:** react-i18next (한국어/영어)
 - **인증:** Firebase Authentication (Google)
 - **데이터베이스:** Firestore
@@ -61,18 +61,18 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow create: if request.auth != null;
       allow update: if request.auth != null
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'approver'];
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'finance', 'approver_ops', 'approver_prep'];
     }
     match /settings/{docId} {
       allow read: if request.auth != null;
       allow write: if request.auth != null
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'approver'];
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'finance'];
     }
     match /settlements/{docId} {
       allow read: if request.auth != null
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'approver'];
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'finance', 'approver_ops', 'approver_prep'];
       allow write: if request.auth != null
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'approver'];
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'finance', 'approver_ops', 'approver_prep'];
     }
   }
 }
@@ -140,11 +140,44 @@ npm install
 # Cloud Functions 의존성 설치
 cd functions && npm install && cd ..
 
-# 개발 서버 실행
+# 개발 서버 실행 (Firebase 프로덕션 연결)
 npm run dev
+
+# 개발 서버 실행 (Firebase 에뮬레이터 연결)
+npm run dev:emulator
 ```
 
 브라우저에서 `http://localhost:5173` 접속
+
+### Firebase 에뮬레이터
+
+로컬에서 Firebase 서비스(Auth, Firestore, Functions)를 에뮬레이션하여 개발할 수 있습니다.
+
+```bash
+# 에뮬레이터 시작
+npm run emulator
+```
+
+에뮬레이터 포트 구성 (`firebase.json`):
+
+| 서비스 | 포트 |
+|--------|------|
+| Auth | 9099 |
+| Firestore | 8080 |
+| Functions | 5001 |
+| Emulator UI | 4000 |
+
+에뮬레이터 모드에서는 `.env.emulator` 파일이 사용됩니다:
+
+```
+VITE_USE_EMULATOR=true
+VITE_FIREBASE_API_KEY=fake-api-key
+VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your-project-id
+VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=000000000000
+VITE_FIREBASE_APP_ID=1:000000000000:web:fake
+```
 
 ### Mock 데이터
 
@@ -157,6 +190,19 @@ npm run seed
 # Mock 데이터 삭제
 npm run seed:clear
 ```
+
+### npm scripts 전체 목록
+
+| 스크립트 | 설명 |
+|----------|------|
+| `npm run dev` | Vite 개발 서버 (프로덕션 Firebase) |
+| `npm run dev:emulator` | Vite 개발 서버 (에뮬레이터 모드) |
+| `npm run emulator` | Firebase 에뮬레이터 시작 |
+| `npm run build` | TypeScript 컴파일 + Vite 프로덕션 빌드 |
+| `npm run lint` | ESLint 실행 |
+| `npm run preview` | 프로덕션 빌드 미리보기 |
+| `npm run seed` | Mock 데이터 생성 |
+| `npm run seed:clear` | Mock 데이터 삭제 |
 
 ## 7. 배포
 
@@ -192,12 +238,26 @@ firebase deploy --only functions
 
 ---
 
+## 사용자 역할 체계
+
+| 역할 | 설명 | 권한 |
+|------|------|------|
+| `user` | 일반 사용자 | 신청서 작성/조회 |
+| `approver_ops` | 운영위원회 승인자 | 운영위 신청 승인/반려, 정산 |
+| `approver_prep` | 준비위원회 승인자 | 준비위 신청 승인/반려, 정산 |
+| `finance` | 재정 담당 | 모든 위원회 승인/반려, 정산, 대시보드/예산 설정 |
+| `admin` | 관리자 | 모든 권한 + 사용자 관리 |
+
+역할별 권한 로직은 `src/lib/roles.ts`에서 관리합니다.
+
+---
+
 ## 프로젝트 구조
 
 ```
 finanace/
 ├── src/
-│   ├── components/          # 공통 UI 컴포넌트 (21개)
+│   ├── components/          # 공통 UI 컴포넌트 (20개)
 │   │   ├── CommitteeSelect    # 위원회 라디오 선택
 │   │   ├── ConfirmModal       # 제출 확인 모달
 │   │   ├── DisplayNameModal   # 초기 가입 정보 입력
@@ -225,9 +285,10 @@ finanace/
 │   ├── contexts/            # React Context
 │   │   └── AuthContext.tsx    # 인증 + 사용자 관리
 │   ├── lib/                 # 유틸리티
-│   │   ├── firebase.ts        # Firebase 설정
+│   │   ├── firebase.ts        # Firebase 설정 (에뮬레이터 자동 연결 포함)
 │   │   ├── i18n.ts            # i18next 설정
 │   │   ├── pdfExport.ts       # PDF 생성 로직
+│   │   ├── roles.ts           # 역할별 권한 판별 함수
 │   │   └── utils.ts           # 공통 유틸 (formatPhone, fileToBase64 등)
 │   ├── locales/             # 번역 파일
 │   │   ├── ko.json            # 한국어
@@ -246,6 +307,7 @@ finanace/
 │   │   ├── AdminUsersPage     # 사용자 관리
 │   │   └── SettingsPage       # 설정 (프로필/통장사본/서명/언어)
 │   └── types/               # TypeScript 타입
+│       └── index.ts           # 역할, 위원회, 신청서, 정산 타입 정의
 ├── functions/               # Cloud Functions
 │   ├── src/index.ts           # uploadReceipts, uploadBankBook
 │   ├── service-account.json   (gitignored)
@@ -253,10 +315,11 @@ finanace/
 ├── scripts/                 # 유틸리티 스크립트
 │   ├── seed.ts                # Mock 데이터 생성
 │   └── clear.ts               # Mock 데이터 삭제
-├── firebase.json            # Firebase 설정
+├── firebase.json            # Firebase 설정 (호스팅 + Functions + 에뮬레이터)
 ├── .env.local               # Firebase 클라이언트 설정 (gitignored)
-├── README.md                # 사용자 가이드 (이 파일 참조)
-└── SETUP.md                 # 이 파일
+├── .env.emulator            # Firebase 에뮬레이터 설정
+├── README.md                # 사용자 가이드
+└── setup.md                 # 이 파일
 ```
 
 ## Firestore 컬렉션 구조
@@ -264,7 +327,7 @@ finanace/
 | 컬렉션 | 용도 |
 |--------|------|
 | `users` | 사용자 정보 (이름, 연락처, 은행, 통장사본, 서명, 권한) |
-| `requests` | 신청서 데이터 (항목, 영수증, 승인/정산 정보, 반려 사유) |
+| `requests` | 신청서 데이터 (항목, 영수증, 승인/정산 정보, 반려 사유, 비고) |
 | `settlements` | 정산 리포트 (신청자별 통합 항목/영수증, 승인자 정보) |
 | `settings` | 서비스 설정 (예산 등) |
 
