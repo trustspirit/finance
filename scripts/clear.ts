@@ -1,43 +1,26 @@
 /**
- * Clear all mock data from Firestore
- * Usage: npx tsx scripts/clear.ts
+ * Clear Firestore EMULATOR data
+ * SAFETY: Only connects to localhost emulator, never production.
  */
 
-import { initializeApp, cert } from 'firebase-admin/app'
+import { initializeApp } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
-import { readFileSync } from 'fs'
-import { join, dirname } from 'path'
-import { fileURLToPath } from 'url'
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
-const serviceAccount = JSON.parse(
-  readFileSync(join(__dirname, '..', 'functions', 'service-account.json'), 'utf8')
-)
-
-initializeApp({ credential: cert(serviceAccount) })
+process.env.FIRESTORE_EMULATOR_HOST = 'localhost:8080'
+initializeApp({ projectId: 'finance-96f46' })
 const db = getFirestore()
 
-async function clearCollection(name: string) {
-  const snap = await db.collection(name).get()
-  const batch = db.batch()
-  snap.docs.forEach((doc) => batch.delete(doc.ref))
-  await batch.commit()
-  console.log(`   ✓ ${name}: ${snap.size} docs deleted`)
-}
-
 async function clear() {
-  console.log('🗑️  Clearing Firestore mock data...\n')
-
-  await clearCollection('users')
-  await clearCollection('requests')
-  await clearCollection('settlements')
-  await clearCollection('settings')
-
-  console.log('\n✅ All mock data cleared!')
+  console.log(`🔧 Emulator: ${process.env.FIRESTORE_EMULATOR_HOST}`)
+  console.log('🗑️  Clearing...\n')
+  for (const name of ['users', 'requests', 'settlements', 'settings']) {
+    const snap = await db.collection(name).get()
+    const batch = db.batch()
+    snap.docs.forEach((doc) => batch.delete(doc.ref))
+    await batch.commit()
+    console.log(`  ✓ ${name}: ${snap.size} deleted`)
+  }
+  console.log('\n✅ Cleared!')
   process.exit(0)
 }
-
-clear().catch((err) => {
-  console.error('❌ Clear failed:', err)
-  process.exit(1)
-})
+clear().catch((e) => { console.error('❌', e); process.exit(1) })
