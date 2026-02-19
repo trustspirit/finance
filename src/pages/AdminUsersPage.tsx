@@ -112,6 +112,7 @@ export default function AdminUsersPage() {
     approver_ops: t('role.approver_ops'),
     approver_prep: t('role.approver_prep'),
     finance: t('role.finance'),
+    director: t('role.director'),
     admin: t('role.admin'),
   }
 
@@ -189,6 +190,7 @@ export default function AdminUsersPage() {
                             <option value="approver_ops">{t('role.approver_ops')}</option>
                             <option value="approver_prep">{t('role.approver_prep')}</option>
                             <option value="finance">{t('role.finance')}</option>
+                            <option value="director">{t('role.director')}</option>
                             <option value="admin">{t('role.admin')}</option>
                           </select>
                           {successUid === u.uid && (

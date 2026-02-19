@@ -10,7 +10,8 @@ import Spinner from '../components/Spinner'
 import PageHeader from '../components/PageHeader'
 import Modal from '../components/Modal'
 import { useTranslation } from 'react-i18next'
-import { canApproveCommittee } from '../lib/roles'
+import { canApproveCommittee, canApproveRequest, DEFAULT_APPROVAL_THRESHOLD } from '../lib/roles'
+
 import { useRequests, useApproveRequest, useRejectRequest } from '../hooks/queries/useRequests'
 import { useUser } from '../hooks/queries/useUsers'
 
@@ -39,7 +40,12 @@ export default function AdminRequestsPage() {
       alert(t('approval.selfApproveError'))
       return
     }
-    if (!canApproveCommittee(role, req.committee)) return
+    if (!canApproveRequest(role, req.committee, req.totalAmount, threshold)) {
+      if (req.totalAmount > threshold) {
+        alert(t('approval.directorRequired'))
+      }
+      return
+    }
     setSignatureData(appUser?.signature || '')
     setSignModalRequestId(requestId)
   }
@@ -73,7 +79,12 @@ export default function AdminRequestsPage() {
       alert(t('approval.selfRejectError'))
       return
     }
-    if (!canApproveCommittee(role, req.committee)) return
+    if (!canApproveRequest(role, req.committee, req.totalAmount, threshold)) {
+      if (req.totalAmount > threshold) {
+        alert(t('approval.directorRequired'))
+      }
+      return
+    }
     setRejectionReason('')
     setRejectModalRequestId(requestId)
   }
@@ -99,6 +110,8 @@ export default function AdminRequestsPage() {
       },
     })
   }
+
+  const threshold = currentProject?.directorApprovalThreshold ?? DEFAULT_APPROVAL_THRESHOLD
 
   // Filter by committee access first, then by status
   const accessible = requests.filter((r) => canApproveCommittee(role, r.committee))
@@ -150,13 +163,17 @@ export default function AdminRequestsPage() {
                         <td className="px-4 py-3 text-right">₩{req.totalAmount.toLocaleString()}</td>
                         <td className="px-4 py-3 text-center"><StatusBadge status={req.status} /></td>
                         <td className="px-4 py-3 text-center">
-                          {req.status === 'pending' && (
+                          {req.status === 'pending' && canApproveRequest(role, req.committee, req.totalAmount, threshold) && (
                             <div className="flex gap-1 justify-center">
                               <button onClick={() => handleApproveWithSign(req.id)}
                                 className="px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700">{t('approval.approve')}</button>
                               <button onClick={() => handleRejectOpen(req.id)}
                                 className="px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700">{t('approval.reject')}</button>
                             </div>
+                          )}
+                          {req.status === 'pending' && !canApproveRequest(role, req.committee, req.totalAmount, threshold)
+                            && req.totalAmount > threshold && (
+                            <span className="text-xs text-orange-600">{t('approval.directorRequired')}</span>
                           )}
                         </td>
                       </tr>
@@ -182,13 +199,17 @@ export default function AdminRequestsPage() {
                 <div className="text-right font-semibold text-gray-900 mb-3">
                   ₩{req.totalAmount.toLocaleString()}
                 </div>
-                {req.status === 'pending' && (
+                {req.status === 'pending' && canApproveRequest(role, req.committee, req.totalAmount, threshold) && (
                   <div className="flex gap-2" onClick={(e) => e.preventDefault()}>
                     <button onClick={() => handleApproveWithSign(req.id)}
                       className="flex-1 px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700">{t('approval.approve')}</button>
                     <button onClick={() => handleRejectOpen(req.id)}
                       className="flex-1 px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700">{t('approval.reject')}</button>
                   </div>
+                )}
+                {req.status === 'pending' && !canApproveRequest(role, req.committee, req.totalAmount, threshold)
+                  && req.totalAmount > threshold && (
+                  <p className="text-xs text-orange-600 mt-1">{t('approval.directorRequired')}</p>
                 )}
               </Link>
             ))}

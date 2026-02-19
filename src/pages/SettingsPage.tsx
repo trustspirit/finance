@@ -154,7 +154,7 @@ function ProjectManagement() {
   const [newDesc, setNewDesc] = useState('')
   const [creating, setCreating] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [editData, setEditData] = useState({ name: '', description: '', documentNo: '' })
+  const [editData, setEditData] = useState({ name: '', description: '', documentNo: '', directorApprovalThreshold: 600000 })
   const [savingEdit, setSavingEdit] = useState(false)
 
   const createProject = useCreateProject()
@@ -178,6 +178,7 @@ function ProjectManagement() {
           createdBy: { uid: appUser.uid, name: appUser.displayName || appUser.name, email: appUser.email },
           budgetConfig: { totalBudget: 0, byCode: {} },
           documentNo: '',
+          directorApprovalThreshold: 600000,
           memberUids: [appUser.uid],
           isActive: true,
         } as unknown as Omit<Project, 'id'>,
@@ -206,6 +207,7 @@ function ProjectManagement() {
       name: p.name || '',
       description: p.description || '',
       documentNo: p.documentNo || '',
+      directorApprovalThreshold: p.directorApprovalThreshold ?? 600000,
     })
   }
 
@@ -219,6 +221,7 @@ function ProjectManagement() {
           name: editData.name,
           description: editData.description,
           documentNo: editData.documentNo,
+          directorApprovalThreshold: editData.directorApprovalThreshold,
         },
       })
       setEditingId(null)
@@ -284,6 +287,16 @@ function ProjectManagement() {
                 <label className="block text-xs text-gray-500 mb-1">{t('dashboard.documentNo')}</label>
                 <input type="text" value={editData.documentNo} onChange={(e) => setEditData({ ...editData, documentNo: e.target.value })}
                   className="w-full border border-gray-300 rounded px-3 py-2 text-sm font-mono" />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">{t('project.directorThreshold')}</label>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-500">₩</span>
+                  <input type="number" value={editData.directorApprovalThreshold}
+                    onChange={(e) => setEditData({ ...editData, directorApprovalThreshold: Number(e.target.value) || 0 })}
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm" step="10000" min="0" />
+                </div>
+                <p className="text-xs text-gray-400 mt-1">{t('project.directorThresholdHint')}</p>
               </div>
               {/* Members */}
               <div>

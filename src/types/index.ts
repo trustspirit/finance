@@ -1,4 +1,4 @@
-export type UserRole = 'user' | 'approver_ops' | 'approver_prep' | 'finance' | 'admin'
+export type UserRole = 'user' | 'approver_ops' | 'approver_prep' | 'finance' | 'director' | 'admin'
 
 export interface ProjectBudgetConfig {
   totalBudget: number
@@ -13,6 +13,7 @@ export interface Project {
   createdBy: { uid: string; name: string; email: string }
   budgetConfig: ProjectBudgetConfig
   documentNo: string
+  directorApprovalThreshold: number
   memberUids: string[]
   isActive: boolean
 }

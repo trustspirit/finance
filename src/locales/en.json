@@ -50,6 +50,7 @@
     "approver_ops": "Session Approver",
     "approver_prep": "Logistical Approver",
     "finance": "Finance",
+    "director": "Director",
     "admin": "Admin"
   },
   "status": {
@@ -144,7 +145,8 @@
     "resubmitDescription": "Edit the rejected request and resubmit. At least one change is required.",
     "resubmitConfirm": "Confirm & Resubmit",
     "originalRequest": "← Original Request",
-    "rejectedOnly": "Only rejected requests can be resubmitted."
+    "rejectedOnly": "Only rejected requests can be resubmitted.",
+    "directorRequired": "Over ₩600,000 — Director approval required"
   },
   "settlement": {
     "title": "Settlement",
@@ -239,6 +241,8 @@
     "description": "Description",
     "create": "Create Project",
     "select": "Select Project",
+    "directorThreshold": "Director Approval Threshold",
+    "directorThresholdHint": "Requests above this amount require director or admin approval.",
     "members": "Members",
     "setDefault": "Set as Default",
     "isDefault": "Default Project",
