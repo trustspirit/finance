@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, ReactNode } from 'react'
+import { createContext, useContext, useState, useMemo, ReactNode } from 'react'
 import { useAuth } from './AuthContext'
 import { useProjects } from '../hooks/queries/useProjects'
 import { Project } from '../types'
@@ -21,7 +21,10 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     () => localStorage.getItem(STORAGE_KEY)
   )
 
-  const currentProject = projects.find(p => p.id === selectedId) ?? projects[0] ?? null
+  const currentProject = useMemo(
+    () => projects.find(p => p.id === selectedId) ?? projects[0] ?? null,
+    [projects, selectedId]
+  )
 
   const setCurrentProject = (project: Project) => {
     setSelectedId(project.id)

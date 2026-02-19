@@ -77,8 +77,9 @@ export function useCreateRequest() {
       const ref = await addDoc(collection(db, 'requests'), docData)
       return ref.id
     },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['requests', variables.projectId] })
+    onSuccess: (id, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.requests.all(variables.projectId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.requests.detail(id) })
     },
   })
 }
@@ -101,7 +102,7 @@ export function useApproveRequest() {
       })
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['requests', variables.projectId] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.requests.all(variables.projectId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.requests.detail(variables.requestId) })
     },
   })
@@ -126,7 +127,7 @@ export function useRejectRequest() {
       })
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['requests', variables.projectId] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.requests.all(variables.projectId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.requests.detail(variables.requestId) })
     },
   })

@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '../hooks/queries/queryKeys'
 import { useAuth } from '../contexts/AuthContext'
 import { useProject } from '../contexts/ProjectContext'
 import { useRequest, useCreateRequest } from '../hooks/queries/useRequests'
@@ -25,6 +27,7 @@ export default function ResubmitPage() {
   const navigate = useNavigate()
 
   const { data: original, isLoading: loading } = useRequest(id)
+  const queryClient = useQueryClient()
   const createRequest = useCreateRequest()
   const uploadReceiptsMutation = useUploadReceipts()
 
@@ -146,6 +149,7 @@ export default function ResubmitPage() {
       if (bankAccount.trim() !== (appUser.bankAccount || '')) profileUpdates.bankAccount = bankAccount.trim()
       if (Object.keys(profileUpdates).length > 0) {
         await updateAppUser(profileUpdates)
+        queryClient.invalidateQueries({ queryKey: queryKeys.users.all() })
       }
 
       await createRequest.mutateAsync({

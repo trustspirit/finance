@@ -6,6 +6,7 @@ export const queryKeys = {
     approved: (projectId: string) => ['requests', projectId, 'approved'] as const,
   },
   projects: {
+    root: () => ['projects'] as const,
     all: (uid: string) => ['projects', uid] as const,
   },
   settlements: {

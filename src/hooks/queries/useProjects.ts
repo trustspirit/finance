@@ -56,7 +56,7 @@ export function useCreateProject() {
       await setDoc(doc(db, 'projects', params.projectId), params.project)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects.root() })
     },
   })
 }
@@ -72,7 +72,7 @@ export function useUpdateProject() {
       await setDoc(doc(db, 'projects', params.projectId), params.data, { merge: true })
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects.root() })
     },
   })
 }
@@ -94,31 +94,34 @@ export function useUpdateProjectMembers() {
       ]
       batch.update(doc(db, 'projects', params.projectId), { memberUids: newMemberUids })
 
-      for (const uid of params.addUids) {
-        const userSnap = await getDoc(doc(db, 'users', uid))
+      const allUids = [...params.addUids, ...params.removeUids]
+      const userSnaps = await Promise.all(
+        allUids.map(uid => getDoc(doc(db, 'users', uid)))
+      )
+
+      params.addUids.forEach((uid, i) => {
+        const userSnap = userSnaps[i]
         if (userSnap.exists()) {
-          const userData = userSnap.data()
-          const projectIds = userData.projectIds || []
+          const projectIds = userSnap.data().projectIds || []
           if (!projectIds.includes(params.projectId)) {
             batch.update(doc(db, 'users', uid), { projectIds: [...projectIds, params.projectId] })
           }
         }
-      }
+      })
 
-      for (const uid of params.removeUids) {
-        const userSnap = await getDoc(doc(db, 'users', uid))
+      params.removeUids.forEach((uid, i) => {
+        const userSnap = userSnaps[params.addUids.length + i]
         if (userSnap.exists()) {
-          const userData = userSnap.data()
-          const projectIds = (userData.projectIds || []).filter((id: string) => id !== params.projectId)
+          const projectIds = (userSnap.data().projectIds || []).filter((id: string) => id !== params.projectId)
           batch.update(doc(db, 'users', uid), { projectIds })
         }
-      }
+      })
 
       await batch.commit()
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['projects'] })
-      queryClient.invalidateQueries({ queryKey: ['users'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects.root() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.all() })
     },
   })
 }

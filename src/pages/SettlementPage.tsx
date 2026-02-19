@@ -72,7 +72,7 @@ export default function SettlementPage() {
   }, {})
 
   const handleSettle = async () => {
-    if (!user || !appUser || selected.size === 0) return
+    if (!user || !appUser || !currentProject || selected.size === 0) return
     const confirmed = window.confirm(t('settlement.settleConfirm', { count: selected.size, payeeCount: Object.keys(groupedByPayee).length }))
     if (!confirmed) return
 
@@ -103,7 +103,7 @@ export default function SettlementPage() {
         const totalAmount = allItems.reduce((sum, item) => sum + item.amount, 0)
 
         return {
-          projectId: currentProject!.id,
+          projectId: currentProject.id,
           createdBy: { uid: user.uid, name: creatorName, email: appUser.email },
           payee: first.payee,
           phone: first.phone,
@@ -121,7 +121,7 @@ export default function SettlementPage() {
       })
 
       await createSettlementMutation.mutateAsync({
-        projectId: currentProject!.id,
+        projectId: currentProject.id,
         settlements: settlementData,
       })
       setSelected(new Set())

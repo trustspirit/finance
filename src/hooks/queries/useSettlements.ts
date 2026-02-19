@@ -60,7 +60,7 @@ export function useCreateSettlement() {
       await batch.commit()
     },
     onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['requests', variables.projectId] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.requests.all(variables.projectId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.settlements.all(variables.projectId) })
     },
   })

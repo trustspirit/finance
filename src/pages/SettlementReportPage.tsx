@@ -21,10 +21,6 @@ export default function SettlementReportPage() {
   const projectName = currentProject?.name || ''
   const [exporting, setExporting] = useState(false)
 
-  if (settlement && currentProject && settlement.projectId !== currentProject.id) {
-    return <Layout><p className="text-gray-500">{t('detail.notFound')}</p></Layout>
-  }
-
   const handleExportPdf = async () => {
     if (!settlement) return
     setExporting(true)
@@ -34,7 +30,9 @@ export default function SettlementReportPage() {
   }
 
   if (loading) return <Layout><Spinner /></Layout>
-  if (!settlement) return <Layout><p className="text-gray-500">{t('detail.notFound')}</p></Layout>
+  if (!settlement || (currentProject && settlement.projectId !== currentProject.id)) {
+    return <Layout><p className="text-gray-500">{t('detail.notFound')}</p></Layout>
+  }
 
   const dateStr = formatFirestoreDate(settlement.createdAt)
 

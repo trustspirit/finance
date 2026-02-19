@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '../hooks/queries/queryKeys'
 import { collection, doc, serverTimestamp } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import { formatPhone, fileToBase64, validateBankBookFile } from '../lib/utils'
@@ -30,6 +32,7 @@ function PersonalSettings() {
   const [bankBookError, setBankBookError] = useState<string | null>(null)
   const hasBankBook = !!(appUser?.bankBookDriveUrl)
 
+  const queryClient = useQueryClient()
   const uploadBankBook = useUploadBankBook()
 
   const handleSave = async () => {
@@ -37,6 +40,7 @@ function PersonalSettings() {
     setSaving(true); setSaved(false)
     try {
       await updateAppUser({ displayName: displayName.trim(), phone: phone.trim(), bankName: bankName.trim(), bankAccount: bankAccount.trim(), defaultCommittee, signature })
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.all() })
       setSaved(true); setTimeout(() => setSaved(false), 2000)
     } catch { alert(t('settings.saveFailed')) } finally { setSaving(false) }
   }
@@ -48,6 +52,7 @@ function PersonalSettings() {
       const data = await fileToBase64(bankBookFile)
       const { driveFileId, driveUrl } = await uploadBankBook.mutateAsync({ file: { name: bankBookFile.name, data } })
       await updateAppUser({ bankBookImage: data, bankBookDriveId: driveFileId, bankBookDriveUrl: driveUrl })
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.all() })
       setBankBookFile(null); alert(t('settings.bankBookUploadSuccess'))
     } catch { alert(t('settings.bankBookUploadFailed')) } finally { setUploadingBankBook(false) }
   }

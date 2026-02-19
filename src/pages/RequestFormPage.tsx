@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useBlocker } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '../hooks/queries/queryKeys'
 import { useAuth } from '../contexts/AuthContext'
 import { useProject } from '../contexts/ProjectContext'
 import { useCreateRequest } from '../hooks/queries/useRequests'
@@ -53,6 +55,7 @@ export default function RequestFormPage() {
   const { currentProject } = useProject()
   const navigate = useNavigate()
 
+  const queryClient = useQueryClient()
   const createRequest = useCreateRequest()
   const uploadReceiptsMutation = useUploadReceipts()
 
@@ -196,6 +199,7 @@ export default function RequestFormPage() {
       if (bankAccount.trim() !== (appUser.bankAccount || '')) profileUpdates.bankAccount = bankAccount.trim()
       if (Object.keys(profileUpdates).length > 0) {
         await updateAppUser(profileUpdates)
+        queryClient.invalidateQueries({ queryKey: queryKeys.users.all() })
       }
 
       await createRequest.mutateAsync({
