@@ -110,8 +110,12 @@ export default function ReceiptsPage() {
         if (!response.ok) return null
         const blob = await response.blob()
         if (blob.size === 0) return null
-        const buffer = await blob.arrayBuffer() as ArrayBuffer
-        return { bytes: new Uint8Array(buffer), ext: row.receipt.fileName.split('.').pop() || 'jpg' }
+        const reader = new FileReader()
+        const bytes = await new Promise<Uint8Array>((resolve) => {
+          reader.onload = () => resolve(new Uint8Array(reader.result as ArrayBuffer))
+          reader.readAsArrayBuffer(blob)
+        })
+        return { bytes, ext: row.receipt.fileName.split('.').pop() || 'jpg' }
       }
     } catch (err) {
       console.warn('Download error:', row.receipt.fileName, err)
@@ -131,7 +135,7 @@ export default function ReceiptsPage() {
         const row = selectedRows[0]
         const file = await downloadOneFile(row)
         if (!file) { alert(t('receipts.downloadFailed')); return }
-        const blob = new Blob([file.bytes])
+        const blob = new Blob([file.bytes as unknown as BlobPart])
         const link = document.createElement('a')
         link.href = URL.createObjectURL(blob)
         link.download = `${row.requestDate}_${row.payee}.${file.ext}`
