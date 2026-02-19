@@ -19,6 +19,7 @@ import { useCreateProject, useUpdateProject, useUpdateProjectMembers } from '../
 function PersonalSettings() {
   const { t, i18n } = useTranslation()
   const { appUser, updateAppUser } = useAuth()
+  const { currentProject } = useProject()
   const [displayName, setDisplayName] = useState(appUser?.displayName || '')
   const [phone, setPhone] = useState(appUser?.phone || '')
   const [bankName, setBankName] = useState(appUser?.bankName || '')
@@ -50,7 +51,7 @@ function PersonalSettings() {
     setUploadingBankBook(true)
     try {
       const data = await fileToBase64(bankBookFile)
-      const { driveFileId, driveUrl } = await uploadBankBook.mutateAsync({ file: { name: bankBookFile.name, data } })
+      const { driveFileId, driveUrl } = await uploadBankBook.mutateAsync({ file: { name: bankBookFile.name, data }, projectId: currentProject?.id })
       await updateAppUser({ bankBookImage: data, bankBookDriveId: driveFileId, bankBookDriveUrl: driveUrl })
       queryClient.invalidateQueries({ queryKey: queryKeys.users.all() })
       setBankBookFile(null); alert(t('settings.bankBookUploadSuccess'))

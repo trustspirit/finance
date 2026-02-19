@@ -38,6 +38,7 @@ const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const googleapis_1 = require("googleapis");
 const stream_1 = require("stream");
+const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 admin.initializeApp();
 const SCOPES = ['https://www.googleapis.com/auth/drive.file'];
@@ -48,13 +49,31 @@ const FOLDER_IDS = {
     preparation: process.env.GDRIVE_FOLDER_PREPARATION || '',
     bankbook: process.env.GDRIVE_FOLDER_BANKBOOK || '',
 };
+const functionConfig = {
+    secrets: ['DRIVE_SERVICE_ACCOUNT'],
+};
 let _driveService = null;
 function getDriveService() {
     if (!_driveService) {
-        const auth = new googleapis_1.google.auth.GoogleAuth({
-            keyFile: SERVICE_ACCOUNT_PATH,
-            scopes: SCOPES,
-        });
+        // Secret Manager에서 credentials 로드, 없으면 로컬 파일 fallback
+        const secretJson = process.env.DRIVE_SERVICE_ACCOUNT;
+        let auth;
+        if (secretJson) {
+            const credentials = JSON.parse(secretJson);
+            auth = new googleapis_1.google.auth.GoogleAuth({
+                credentials,
+                scopes: SCOPES,
+            });
+        }
+        else if (fs.existsSync(SERVICE_ACCOUNT_PATH)) {
+            auth = new googleapis_1.google.auth.GoogleAuth({
+                keyFile: SERVICE_ACCOUNT_PATH,
+                scopes: SCOPES,
+            });
+        }
+        else {
+            throw new Error('No Drive service account credentials found');
+        }
         _driveService = googleapis_1.google.drive({ version: 'v3', auth });
     }
     return _driveService;
@@ -76,10 +95,12 @@ async function uploadFileToDrive(drive, file, folderId) {
         },
         media: { mimeType, body: stream },
         fields: 'id, webViewLink',
+        supportsAllDrives: true,
     });
     await drive.permissions.create({
         fileId: response.data.id,
         requestBody: { role: 'reader', type: 'anyone' },
+        supportsAllDrives: true,
     });
     return {
         fileName: file.name,
@@ -104,7 +125,7 @@ async function getProjectFolderId(projectId, committee) {
     return FOLDER_IDS[committee] || '';
 }
 // 영수증 업로드
-exports.uploadReceipts = functions.https.onCall(async (data, context) => {
+exports.uploadReceipts = functions.runWith(functionConfig).https.onCall(async (data, context) => {
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'Must be logged in');
     }
@@ -124,7 +145,7 @@ exports.uploadReceipts = functions.https.onCall(async (data, context) => {
     return results;
 });
 // 통장사본 업로드
-exports.uploadBankBook = functions.https.onCall(async (data, context) => {
+exports.uploadBankBook = functions.runWith(functionConfig).https.onCall(async (data, context) => {
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'Must be logged in');
     }

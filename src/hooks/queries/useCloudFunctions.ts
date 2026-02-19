@@ -11,6 +11,7 @@ interface UploadReceiptsInput {
 
 interface UploadBankBookInput {
   file: { name: string; data: string }
+  projectId?: string
 }
 
 interface UploadBankBookResult {
