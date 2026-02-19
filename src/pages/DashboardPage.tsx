@@ -1,13 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { collection, getDocs, doc, setDoc, query, where } from 'firebase/firestore'
-import { db } from '../lib/firebase'
 import { useAuth } from '../contexts/AuthContext'
 import { useProject } from '../contexts/ProjectContext'
-import { PaymentRequest } from '../types'
 import { UNIQUE_BUDGET_CODES } from '../constants/budgetCodes'
 import Layout from '../components/Layout'
 import Spinner from '../components/Spinner'
+import { useRequests } from '../hooks/queries/useRequests'
+import { useUpdateProject } from '../hooks/queries/useProjects'
 
 interface BudgetConfig {
   totalBudget: number
@@ -29,11 +28,8 @@ interface Stats {
 export default function DashboardPage() {
   const { t } = useTranslation()
   const { appUser } = useAuth()
-  const { currentProject, refreshProjects } = useProject()
-  const [stats, setStats] = useState<Stats | null>(null)
+  const { currentProject } = useProject()
   const [budget, setBudget] = useState<BudgetConfig>({ totalBudget: 0, byCode: {} })
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [editingBudget, setEditingBudget] = useState(false)
   const [tempBudget, setTempBudget] = useState<BudgetConfig>({ totalBudget: 0, byCode: {} })
   const [savingBudget, setSavingBudget] = useState(false)
@@ -42,101 +38,89 @@ export default function DashboardPage() {
   const [tempDocNo, setTempDocNo] = useState('')
   const [savingDocNo, setSavingDocNo] = useState(false)
 
+  const { data: requests = [], isLoading: loading, error } = useRequests(currentProject?.id)
+  const updateProject = useUpdateProject()
+
+  const stats = useMemo(() => {
+    if (requests.length === 0) return null
+
+    const total = requests.length
+    const pending = requests.filter((r) => r.status === 'pending').length
+    const approved = requests.filter((r) => r.status === 'approved').length
+    const rejected = requests.filter((r) => r.status === 'rejected').length
+    const totalAmount = requests.reduce((sum, r) => sum + r.totalAmount, 0)
+    const approvedAmount = requests.filter((r) => r.status === 'approved' || r.status === 'settled').reduce((sum, r) => sum + r.totalAmount, 0)
+    const pendingAmount = requests.filter((r) => r.status === 'pending').reduce((sum, r) => sum + r.totalAmount, 0)
+    const byCommittee: Stats['byCommittee'] = {}
+    const byBudgetCode: Stats['byBudgetCode'] = {}
+
+    requests.forEach((r) => {
+      const committee = r.committee || 'operations'
+      if (!byCommittee[committee]) byCommittee[committee] = { count: 0, amount: 0, approvedAmount: 0 }
+      byCommittee[committee].count++
+      byCommittee[committee].amount += r.totalAmount
+      if (r.status === 'approved' || r.status === 'settled') byCommittee[committee].approvedAmount += r.totalAmount
+
+      r.items.forEach((item) => {
+        if (!byBudgetCode[item.budgetCode]) byBudgetCode[item.budgetCode] = { count: 0, amount: 0, approvedAmount: 0 }
+        byBudgetCode[item.budgetCode].count++
+        byBudgetCode[item.budgetCode].amount += item.amount
+        if (r.status === 'approved' || r.status === 'settled') byBudgetCode[item.budgetCode].approvedAmount += item.amount
+      })
+    })
+
+    return { total, pending, approved, rejected, totalAmount, approvedAmount, pendingAmount, byCommittee, byBudgetCode }
+  }, [requests])
+
+  // Initialize budget and documentNo from currentProject
+  useEffect(() => {
+    if (currentProject?.budgetConfig) {
+      setBudget(currentProject.budgetConfig)
+      setTempBudget(currentProject.budgetConfig)
+    }
+    if (currentProject?.documentNo) {
+      setDocumentNo(currentProject.documentNo)
+      setTempDocNo(currentProject.documentNo)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentProject?.id])
+
   const canEditBudget = appUser?.role === 'admin' || appUser?.role === 'finance'
 
-  useEffect(() => {
-    if (!currentProject?.id) return
-    const fetchData = async () => {
-      setLoading(true)
-      setError(null)
-      try {
-        // Fetch requests filtered by project
-        const q = query(collection(db, 'requests'), where('projectId', '==', currentProject.id))
-        const reqSnap = await getDocs(q)
-        const requests = reqSnap.docs.map((d) => d.data() as PaymentRequest)
-
-        const stats: Stats = {
-          total: requests.length,
-          pending: requests.filter((r) => r.status === 'pending').length,
-          approved: requests.filter((r) => r.status === 'approved').length,
-          rejected: requests.filter((r) => r.status === 'rejected').length,
-          totalAmount: requests.reduce((sum, r) => sum + r.totalAmount, 0),
-          approvedAmount: requests.filter((r) => r.status === 'approved' || r.status === 'settled').reduce((sum, r) => sum + r.totalAmount, 0),
-          pendingAmount: requests.filter((r) => r.status === 'pending').reduce((sum, r) => sum + r.totalAmount, 0),
-          byCommittee: {},
-          byBudgetCode: {},
-        }
-
-        requests.forEach((r) => {
-          const committee = r.committee || 'operations'
-          if (!stats.byCommittee[committee]) stats.byCommittee[committee] = { count: 0, amount: 0, approvedAmount: 0 }
-          stats.byCommittee[committee].count++
-          stats.byCommittee[committee].amount += r.totalAmount
-          if (r.status === 'approved' || r.status === 'settled') stats.byCommittee[committee].approvedAmount += r.totalAmount
-
-          r.items.forEach((item) => {
-            if (!stats.byBudgetCode[item.budgetCode]) stats.byBudgetCode[item.budgetCode] = { count: 0, amount: 0, approvedAmount: 0 }
-            stats.byBudgetCode[item.budgetCode].count++
-            stats.byBudgetCode[item.budgetCode].amount += item.amount
-            if (r.status === 'approved' || r.status === 'settled') stats.byBudgetCode[item.budgetCode].approvedAmount += item.amount
-          })
-        })
-
-        setStats(stats)
-
-        // Read budget and documentNo from currentProject context
-        if (currentProject?.budgetConfig) {
-          setBudget(currentProject.budgetConfig)
-          setTempBudget(currentProject.budgetConfig)
-        }
-        if (currentProject?.documentNo) {
-          setDocumentNo(currentProject.documentNo)
-          setTempDocNo(currentProject.documentNo)
-        }
-      } catch (error) {
-        console.error('Failed to fetch dashboard data:', error)
-        setError(t('common.noData'))
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchData()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [t, currentProject?.id])
-
-  const handleSaveBudget = async () => {
+  const handleSaveBudget = () => {
     if (!currentProject?.id) return
     setSavingBudget(true)
-    try {
-      await setDoc(doc(db, 'projects', currentProject.id), { budgetConfig: tempBudget }, { merge: true })
-      setBudget(tempBudget)
-      setEditingBudget(false)
-      await refreshProjects()
-    } catch (error) {
-      console.error('Failed to save budget:', error)
-      alert(t('dashboard.budgetSettings'))
-    } finally {
-      setSavingBudget(false)
-    }
+    updateProject.mutate({
+      projectId: currentProject!.id,
+      data: { budgetConfig: tempBudget },
+    }, {
+      onSuccess: () => {
+        setBudget(tempBudget)
+        setEditingBudget(false)
+        setSavingBudget(false)
+      },
+      onError: () => { setSavingBudget(false) },
+    })
   }
 
-  const handleSaveDocNo = async () => {
+  const handleSaveDocNo = () => {
     if (!currentProject?.id) return
     setSavingDocNo(true)
-    try {
-      await setDoc(doc(db, 'projects', currentProject.id), { documentNo: tempDocNo }, { merge: true })
-      setDocumentNo(tempDocNo)
-      setEditingDocNo(false)
-      await refreshProjects()
-    } catch (error) {
-      console.error('Failed to save document no:', error)
-    } finally {
-      setSavingDocNo(false)
-    }
+    updateProject.mutate({
+      projectId: currentProject!.id,
+      data: { documentNo: tempDocNo },
+    }, {
+      onSuccess: () => {
+        setDocumentNo(tempDocNo)
+        setEditingDocNo(false)
+        setSavingDocNo(false)
+      },
+      onError: () => { setSavingDocNo(false) },
+    })
   }
 
   if (loading) return <Layout><Spinner /></Layout>
-  if (error) return <Layout><div className="text-center py-16 text-red-500">{error}</div></Layout>
+  if (error) return <Layout><div className="text-center py-16 text-red-500">{t('common.noData')}</div></Layout>
   if (!stats) return <Layout><div className="text-center py-16 text-gray-500">{t('common.noData')}</div></Layout>
 
   const remainingBudget = budget.totalBudget - stats.approvedAmount
@@ -158,7 +142,7 @@ export default function DashboardPage() {
       {budget.totalBudget > 0 && (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <h3 className="text-sm font-medium text-gray-700 mb-3">{t('dashboard.budgetOverview')}</h3>
-          <div className="flex flex-wrap items-end gap-8 mb-3">
+          <div className="flex flex-wrap items-end gap-6 mb-4">
             <div>
               <p className="text-xs text-gray-500">{t('dashboard.totalBudget')}</p>
               <p className="text-lg font-bold">₩{budget.totalBudget.toLocaleString()}</p>
@@ -177,14 +161,43 @@ export default function DashboardPage() {
                 ₩{remainingBudget.toLocaleString()}
               </p>
             </div>
+            <div>
+              <p className="text-xs text-gray-500">{t('dashboard.totalSpent')}</p>
+              <p className="text-lg font-bold text-gray-700">₩{stats.totalAmount.toLocaleString()}</p>
+            </div>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-3">
-            <div
-              className={`h-3 rounded-full transition-all ${usagePercent > 90 ? 'bg-red-500' : usagePercent > 70 ? 'bg-yellow-500' : 'bg-blue-500'}`}
-              style={{ width: `${Math.min(usagePercent, 100)}%` }}
-            />
+          {/* Approved usage bar */}
+          <div className="mb-2">
+            <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+              <span>{t('dashboard.used')}</span>
+              <span>{usagePercent}%</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-3">
+              <div
+                className={`h-3 rounded-full transition-all ${usagePercent > 90 ? 'bg-red-500' : usagePercent > 70 ? 'bg-yellow-500' : 'bg-blue-500'}`}
+                style={{ width: `${Math.min(usagePercent, 100)}%` }}
+              />
+            </div>
           </div>
-          <p className="text-xs text-gray-500 mt-1 text-right">{t('dashboard.usage', { percent: usagePercent })}</p>
+          {/* Pending + Approved combined bar */}
+          {stats.pendingAmount > 0 && (() => {
+            const combinedPercent = budget.totalBudget > 0 ? Math.round(((stats.approvedAmount + stats.pendingAmount) / budget.totalBudget) * 100) : 0
+            return (
+              <div>
+                <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                  <span>{t('dashboard.used')} + {t('dashboard.pendingAmount')}</span>
+                  <span>{combinedPercent}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-3">
+                  <div className="h-3 rounded-full flex overflow-hidden" style={{ width: `${Math.min(combinedPercent, 100)}%` }}>
+                    <div className={`${usagePercent > 90 ? 'bg-red-500' : usagePercent > 70 ? 'bg-yellow-500' : 'bg-blue-500'}`}
+                      style={{ width: `${combinedPercent > 0 ? Math.round((stats.approvedAmount / (stats.approvedAmount + stats.pendingAmount)) * 100) : 0}%` }} />
+                    <div className="bg-yellow-400" style={{ flex: 1 }} />
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
         </div>
       )}
 
@@ -229,14 +242,18 @@ export default function DashboardPage() {
                 <tr>
                   <th className="text-left py-2">Code</th>
                   <th className="text-right py-2">{t('dashboard.count')}</th>
-                  <th className="text-right py-2">{t('dashboard.approvedAmount')}</th>
                   {budget.totalBudget > 0 && <th className="text-right py-2">{t('dashboard.allocatedBudget')}</th>}
+                  <th className="text-right py-2">{t('dashboard.approvedAmount')}</th>
+                  {budget.totalBudget > 0 && <th className="text-right py-2">{t('dashboard.remaining')}</th>}
+                  {budget.totalBudget > 0 && <th className="text-right py-2 w-28">{t('dashboard.usage', { percent: '' }).replace('%', '')}</th>}
                 </tr>
               </thead>
               <tbody className="divide-y">
                 {UNIQUE_BUDGET_CODES.map((code) => {
                   const data = stats.byBudgetCode[code] || { count: 0, amount: 0, approvedAmount: 0 }
                   const codeBudget = budget.byCode[code] || 0
+                  const codeRemaining = codeBudget - data.approvedAmount
+                  const codeUsage = codeBudget > 0 ? Math.round((data.approvedAmount / codeBudget) * 100) : 0
                   const over = codeBudget > 0 && data.approvedAmount > codeBudget
                   return (
                     <tr key={code}>
@@ -245,12 +262,34 @@ export default function DashboardPage() {
                         <span className="ml-2 text-gray-400 text-xs">{t(`budgetCode.${code}`)}</span>
                       </td>
                       <td className="py-2 text-right">{t('form.itemCount', { count: data.count })}</td>
+                      {budget.totalBudget > 0 && (
+                        <td className="py-2 text-right text-gray-500">
+                          {codeBudget > 0 ? `₩${codeBudget.toLocaleString()}` : '-'}
+                        </td>
+                      )}
                       <td className={`py-2 text-right ${over ? 'text-red-600 font-medium' : ''}`}>
                         ₩{data.approvedAmount.toLocaleString()}
                       </td>
                       {budget.totalBudget > 0 && (
-                        <td className="py-2 text-right text-gray-500">
-                          {codeBudget > 0 ? `₩${codeBudget.toLocaleString()}` : '-'}
+                        <td className={`py-2 text-right ${over ? 'text-red-600' : 'text-green-600'}`}>
+                          {codeBudget > 0 ? `₩${codeRemaining.toLocaleString()}` : '-'}
+                        </td>
+                      )}
+                      {budget.totalBudget > 0 && (
+                        <td className="py-2">
+                          {codeBudget > 0 ? (
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                <div
+                                  className={`h-2 rounded-full ${codeUsage > 90 ? 'bg-red-500' : codeUsage > 70 ? 'bg-yellow-500' : 'bg-blue-500'}`}
+                                  style={{ width: `${Math.min(codeUsage, 100)}%` }}
+                                />
+                              </div>
+                              <span className="text-xs text-gray-500 w-10 text-right">{codeUsage}%</span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-gray-400">-</span>
+                          )}
                         </td>
                       )}
                     </tr>
@@ -326,16 +365,34 @@ export default function DashboardPage() {
                   </tr>
                 ))}
               </tbody>
-              {editingBudget && (
-                <tfoot className="border-t">
-                  <tr>
-                    <td colSpan={2} className="py-2 text-right font-medium">{t('dashboard.codeTotal')}</td>
-                    <td className="py-2 text-right font-medium">
-                      ₩{Object.values(tempBudget.byCode).reduce((sum, v) => sum + (v || 0), 0).toLocaleString()}
-                    </td>
-                  </tr>
-                </tfoot>
-              )}
+              {(() => {
+                const currentBudget = editingBudget ? tempBudget : budget
+                const codeTotal = Object.values(currentBudget.byCode).reduce((sum, v) => sum + (v || 0), 0)
+                const diff = codeTotal - currentBudget.totalBudget
+                const hasTotal = currentBudget.totalBudget > 0
+                return (
+                  <tfoot className="border-t">
+                    <tr>
+                      <td colSpan={2} className="py-2 text-right font-medium">{t('dashboard.codeTotal')}</td>
+                      <td className="py-2 text-right font-bold">₩{codeTotal.toLocaleString()}</td>
+                    </tr>
+                    {hasTotal && diff !== 0 && (
+                      <tr>
+                        <td colSpan={2} className="py-2 text-right font-medium">{t('dashboard.difference')}</td>
+                        <td className={`py-2 text-right font-bold ${diff > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                          {diff > 0 ? '+' : ''}{`₩${diff.toLocaleString()}`}
+                        </td>
+                      </tr>
+                    )}
+                    {hasTotal && diff === 0 && (
+                      <tr>
+                        <td colSpan={2} className="py-2 text-right font-medium">{t('dashboard.difference')}</td>
+                        <td className="py-2 text-right font-bold text-green-600">₩0</td>
+                      </tr>
+                    )}
+                  </tfoot>
+                )
+              })()}
             </table>
           </div>
         </div>

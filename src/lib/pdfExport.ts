@@ -54,7 +54,7 @@ function buildPdfStyles() {
   `
 }
 
-export async function exportSettlementPdf(settlement: Settlement, documentNo = '') {
+export async function exportSettlementPdf(settlement: Settlement, documentNo = '', projectName = '') {
   const images = await preloadImages(settlement.receipts)
   const dateStr = formatFirestoreDate(settlement.createdAt) || new Date().toLocaleDateString('ko-KR')
 
@@ -65,6 +65,7 @@ export async function exportSettlementPdf(settlement: Settlement, documentNo = '
   <style>${buildPdfStyles()}</style>
 </head><body>
   <h1>${t('settlement.reportTitle')}</h1>
+  ${projectName ? `<p class="subtitle" style="font-weight:600;">${escapeHtml(projectName)}</p>` : ''}
   <p class="subtitle">${t('settlement.reportSubtitle')}</p>
 
   <div class="info-grid">

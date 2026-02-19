@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
-import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore'
-import { httpsCallable } from 'firebase/functions'
-import { db, functions } from '../lib/firebase'
+import { useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '../hooks/queries/queryKeys'
 import { useAuth } from '../contexts/AuthContext'
 import { useProject } from '../contexts/ProjectContext'
-import { updateDoc } from 'firebase/firestore'
-import { RequestItem, Receipt, Committee, PaymentRequest } from '../types'
+import { useRequest, useCreateRequest } from '../hooks/queries/useRequests'
+import { useUploadReceipts } from '../hooks/queries/useCloudFunctions'
+import { RequestItem, Receipt, Committee } from '../types'
 import Layout from '../components/Layout'
 import ItemRow from '../components/ItemRow'
 import FileUpload from '../components/FileUpload'
@@ -22,12 +22,15 @@ const emptyItem = (): RequestItem => ({ description: '', budgetCode: 0, amount: 
 export default function ResubmitPage() {
   const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
-  const { user, appUser } = useAuth()
+  const { user, appUser, updateAppUser } = useAuth()
   const { currentProject } = useProject()
   const navigate = useNavigate()
 
-  const [original, setOriginal] = useState<PaymentRequest | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { data: original, isLoading: loading } = useRequest(id)
+  const queryClient = useQueryClient()
+  const createRequest = useCreateRequest()
+  const uploadReceiptsMutation = useUploadReceipts()
+
   const [payee, setPayee] = useState('')
   const [phone, setPhone] = useState('')
   const [bankName, setBankName] = useState('')
@@ -43,30 +46,16 @@ export default function ResubmitPage() {
   const [errors, setErrors] = useState<string[]>([])
 
   useEffect(() => {
-    if (!id) return
-    const fetch = async () => {
-      try {
-        const snap = await getDoc(doc(db, 'requests', id))
-        if (snap.exists()) {
-          const data = { id: snap.id, ...snap.data() } as PaymentRequest
-          setOriginal(data)
-          setPayee(data.payee)
-          setPhone(data.phone)
-          setBankName(data.bankName)
-          setBankAccount(data.bankAccount)
-          setDate(data.date)
-          setCommittee(data.committee)
-          setItems(data.items.length > 0 ? data.items : [emptyItem()])
-          setComments(data.comments)
-        }
-      } catch (error) {
-        console.error('Failed to fetch request:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetch()
-  }, [id])
+    if (!original) return
+    setPayee(original.payee)
+    setPhone(original.phone)
+    setBankName(original.bankName)
+    setBankAccount(original.bankAccount)
+    setDate(original.date)
+    setCommittee(original.committee)
+    setItems(original.items.length > 0 ? original.items : [emptyItem()])
+    setComments(original.comments)
+  }, [original])
 
   const totalAmount = items.reduce((sum, item) => sum + item.amount, 0)
   const validItems = items.filter((item) => item.description && item.amount > 0)
@@ -146,14 +135,10 @@ export default function ResubmitPage() {
     try {
       let receipts: Receipt[] = []
       if (files.length > 0) {
-        const uploadFn = httpsCallable<{ files: { name: string; data: string }[]; committee: string; projectId: string }, Receipt[]>(
-          functions, 'uploadReceipts'
-        )
         const fileData = await Promise.all(
           files.map(async (f) => ({ name: f.name, data: await fileToBase64(f) }))
         )
-        const result = await uploadFn({ files: fileData, committee, projectId: currentProject!.id })
-        receipts = result.data
+        receipts = await uploadReceiptsMutation.mutateAsync({ files: fileData, committee, projectId: currentProject.id })
       } else {
         receipts = original.receipts
       }
@@ -163,12 +148,12 @@ export default function ResubmitPage() {
       if (bankName.trim() !== (appUser.bankName || '')) profileUpdates.bankName = bankName.trim()
       if (bankAccount.trim() !== (appUser.bankAccount || '')) profileUpdates.bankAccount = bankAccount.trim()
       if (Object.keys(profileUpdates).length > 0) {
-        await updateDoc(doc(db, 'users', user.uid), profileUpdates)
+        await updateAppUser(profileUpdates)
+        queryClient.invalidateQueries({ queryKey: queryKeys.users.all() })
       }
 
-      await addDoc(collection(db, 'requests'), {
-        createdAt: serverTimestamp(),
-        projectId: currentProject!.id,
+      await createRequest.mutateAsync({
+        projectId: currentProject.id,
         status: 'pending',
         payee,
         phone,

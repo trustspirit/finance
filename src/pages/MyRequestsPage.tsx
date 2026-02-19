@@ -1,11 +1,9 @@
-import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useProject } from '../contexts/ProjectContext'
 import { Link } from 'react-router-dom'
-import { collection, query, where, orderBy, getDocs } from 'firebase/firestore'
-import { db } from '../lib/firebase'
 import { useAuth } from '../contexts/AuthContext'
-import { PaymentRequest } from '../types'
+import { useMyRequests } from '../hooks/queries/useRequests'
+
 import Layout from '../components/Layout'
 import StatusBadge from '../components/StatusBadge'
 import Spinner from '../components/Spinner'
@@ -16,32 +14,7 @@ export default function MyRequestsPage() {
   const { t } = useTranslation()
   const { user } = useAuth()
   const { currentProject } = useProject()
-  const [requests, setRequests] = useState<PaymentRequest[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!user || !currentProject?.id) return
-    const fetchRequests = async () => {
-      try {
-        setError(null)
-        const q = query(
-          collection(db, 'requests'),
-          where('projectId', '==', currentProject?.id),
-          where('requestedBy.uid', '==', user.uid),
-          orderBy('createdAt', 'desc')
-        )
-        const snap = await getDocs(q)
-        setRequests(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() } as PaymentRequest)))
-      } catch (err) {
-        console.error('Failed to fetch requests:', err)
-        setError(t('myRequests.fetchError'))
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchRequests()
-  }, [user, t, currentProject?.id])
+  const { data: requests = [], isLoading: loading, error } = useMyRequests(currentProject?.id, user?.uid)
 
   return (
     <Layout>
@@ -52,7 +25,7 @@ export default function MyRequestsPage() {
       {loading ? (
         <Spinner />
       ) : error ? (
-        <p className="text-red-500 text-sm">{error}</p>
+        <p className="text-red-500 text-sm">{error?.message}</p>
       ) : requests.length === 0 ? (
         <EmptyState
           title={t('myRequests.noRequests')}

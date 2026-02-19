@@ -203,6 +203,8 @@
 
 ---
 
-## 기술 지원
+## 배포
 
-서비스 설정, 배포 및 Mock 데이터에 대한 자세한 내용은 [SETUP.md](./SETUP.md)를 참고하세요.
+`main` 브랜치에 push하면 GitHub Actions를 통해 Firebase Hosting 및 Cloud Functions가 자동 배포됩니다. 수동 배포도 가능합니다.
+
+자세한 설정, 배포, CI/CD 및 Mock 데이터에 대한 내용은 [SETUP.md](./SETUP.md)를 참고하세요.

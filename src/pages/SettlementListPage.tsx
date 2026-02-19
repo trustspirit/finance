@@ -1,9 +1,7 @@
-import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
-import { collection, getDocs, orderBy, query, where } from 'firebase/firestore'
-import { db } from '../lib/firebase'
 import { useProject } from '../contexts/ProjectContext'
+import { useSettlements } from '../hooks/queries/useSettlements'
 import { formatFirestoreDate } from '../lib/utils'
 import { Settlement } from '../types'
 import Layout from '../components/Layout'
@@ -14,28 +12,7 @@ import PageHeader from '../components/PageHeader'
 export default function SettlementListPage() {
   const { t } = useTranslation()
   const { currentProject } = useProject()
-  const [settlements, setSettlements] = useState<Settlement[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    if (!currentProject?.id) return
-    const fetch = async () => {
-      try {
-        const q = query(
-          collection(db, 'settlements'),
-          where('projectId', '==', currentProject.id),
-          orderBy('createdAt', 'desc')
-        )
-        const snap = await getDocs(q)
-        setSettlements(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Settlement)))
-      } catch (error) {
-        console.error('Failed to fetch settlements:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetch()
-  }, [currentProject?.id])
+  const { data: settlements = [], isLoading: loading } = useSettlements(currentProject?.id)
 
   const formatDate = (s: Settlement) => formatFirestoreDate(s.createdAt)
 

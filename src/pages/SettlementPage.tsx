@@ -1,12 +1,12 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
-import { collection, query, where, getDocs, doc, serverTimestamp, writeBatch } from 'firebase/firestore'
-import { db } from '../lib/firebase'
 import { useAuth } from '../contexts/AuthContext'
 import { useProject } from '../contexts/ProjectContext'
 import { PaymentRequest } from '../types'
 import { canApproveCommittee } from '../lib/roles'
+import { useApprovedRequests } from '../hooks/queries/useRequests'
+import { useCreateSettlement } from '../hooks/queries/useSettlements'
 import Layout from '../components/Layout'
 import Spinner from '../components/Spinner'
 
@@ -16,28 +16,18 @@ export default function SettlementPage() {
   const { currentProject } = useProject()
   const role = appUser?.role || 'user'
   const navigate = useNavigate()
-  const [requests, setRequests] = useState<PaymentRequest[]>([])
-  const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [processing, setProcessing] = useState(false)
   const [lastClickedIndex, setLastClickedIndex] = useState<number | null>(null)
 
-  useEffect(() => {
-    if (!currentProject?.id) return
-    const fetchApproved = async () => {
-      try {
-        const q = query(collection(db, 'requests'), where('projectId', '==', currentProject.id), where('status', '==', 'approved'))
-        const snap = await getDocs(q)
-        const all = snap.docs.map((d) => ({ id: d.id, ...d.data() } as PaymentRequest))
-        setRequests(all.filter((r) => canApproveCommittee(role, r.committee)))
-      } catch (error) {
-        console.error('Failed to fetch approved requests:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchApproved()
-  }, [role, currentProject?.id])
+  const { data: allRequests = [], isLoading: loading } = useApprovedRequests(currentProject?.id)
+  const createSettlementMutation = useCreateSettlement()
+
+  // Role-based filtering stays client-side:
+  const requests = useMemo(
+    () => allRequests.filter(r => canApproveCommittee(role, r.committee)),
+    [allRequests, role]
+  )
 
   const handleRowClick = useCallback((id: string, index: number, e: React.MouseEvent) => {
     if (e.shiftKey && lastClickedIndex !== null) {
@@ -82,7 +72,7 @@ export default function SettlementPage() {
   }, {})
 
   const handleSettle = async () => {
-    if (!user || !appUser || selected.size === 0) return
+    if (!user || !appUser || !currentProject || selected.size === 0) return
     const confirmed = window.confirm(t('settlement.settleConfirm', { count: selected.size, payeeCount: Object.keys(groupedByPayee).length }))
     if (!confirmed) return
 
@@ -106,18 +96,14 @@ export default function SettlementPage() {
         return
       }
 
-      const batch = writeBatch(db)
-
-      for (const [, reqs] of Object.entries(groupedByPayee)) {
+      const settlementData = Object.values(groupedByPayee).map((reqs) => {
         const first = reqs[0]
         const allItems = reqs.flatMap((r) => r.items)
         const allReceipts = reqs.flatMap((r) => r.receipts)
         const totalAmount = allItems.reduce((sum, item) => sum + item.amount, 0)
 
-        const settlementRef = doc(collection(db, 'settlements'))
-        batch.set(settlementRef, {
-          createdAt: serverTimestamp(),
-          projectId: currentProject!.id,
+        return {
+          projectId: currentProject.id,
           createdBy: { uid: user.uid, name: creatorName, email: appUser.email },
           payee: first.payee,
           phone: first.phone,
@@ -131,17 +117,14 @@ export default function SettlementPage() {
           requestIds: reqs.map((r) => r.id),
           approvedBy: first.approvedBy,
           approvalSignature: first.approvalSignature || null,
-        })
-
-        for (const req of reqs) {
-          batch.update(doc(db, 'requests', req.id), {
-            status: 'settled',
-            settlementId: settlementRef.id,
-          })
         }
-      }
+      })
 
-      await batch.commit()
+      await createSettlementMutation.mutateAsync({
+        projectId: currentProject.id,
+        settlements: settlementData,
+      })
+      setSelected(new Set())
       navigate('/admin/settlements')
     } catch (error) {
       console.error('Failed to create settlement:', error)

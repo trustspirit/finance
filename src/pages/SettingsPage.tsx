@@ -1,15 +1,20 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { httpsCallable } from 'firebase/functions'
-import { collection, getDocs, doc, setDoc, deleteDoc, arrayUnion, arrayRemove, getDoc, serverTimestamp, writeBatch } from 'firebase/firestore'
-import { db, functions } from '../lib/firebase'
+import { useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '../hooks/queries/queryKeys'
+import { collection, doc, serverTimestamp } from 'firebase/firestore'
+import { db } from '../lib/firebase'
 import { formatPhone, fileToBase64, validateBankBookFile } from '../lib/utils'
 import { useAuth } from '../contexts/AuthContext'
 import { useProject } from '../contexts/ProjectContext'
-import { Committee, Project, AppUser } from '../types'
+import { Committee, Project } from '../types'
 import Layout from '../components/Layout'
 import SignaturePad from '../components/SignaturePad'
 import CommitteeSelect from '../components/CommitteeSelect'
+import { useUploadBankBook } from '../hooks/queries/useCloudFunctions'
+import { useUsers } from '../hooks/queries/useUsers'
+import { useGlobalSettings, useUpdateGlobalSettings } from '../hooks/queries/useSettings'
+import { useCreateProject, useUpdateProject, useUpdateProjectMembers } from '../hooks/queries/useProjects'
 
 function PersonalSettings() {
   const { t, i18n } = useTranslation()
@@ -27,11 +32,15 @@ function PersonalSettings() {
   const [bankBookError, setBankBookError] = useState<string | null>(null)
   const hasBankBook = !!(appUser?.bankBookDriveUrl)
 
+  const queryClient = useQueryClient()
+  const uploadBankBook = useUploadBankBook()
+
   const handleSave = async () => {
     if (!displayName.trim()) { alert(t('validation.displayNameRequired')); return }
     setSaving(true); setSaved(false)
     try {
       await updateAppUser({ displayName: displayName.trim(), phone: phone.trim(), bankName: bankName.trim(), bankAccount: bankAccount.trim(), defaultCommittee, signature })
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.all() })
       setSaved(true); setTimeout(() => setSaved(false), 2000)
     } catch { alert(t('settings.saveFailed')) } finally { setSaving(false) }
   }
@@ -41,10 +50,9 @@ function PersonalSettings() {
     setUploadingBankBook(true)
     try {
       const data = await fileToBase64(bankBookFile)
-      const uploadFn = httpsCallable<{ file: { name: string; data: string } }, { fileName: string; driveFileId: string; driveUrl: string }>(functions, 'uploadBankBook')
-      const result = await uploadFn({ file: { name: bankBookFile.name, data } })
-      const { driveFileId, driveUrl } = result.data
+      const { driveFileId, driveUrl } = await uploadBankBook.mutateAsync({ file: { name: bankBookFile.name, data } })
       await updateAppUser({ bankBookImage: data, bankBookDriveId: driveFileId, bankBookDriveUrl: driveUrl })
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.all() })
       setBankBookFile(null); alert(t('settings.bankBookUploadSuccess'))
     } catch { alert(t('settings.bankBookUploadFailed')) } finally { setUploadingBankBook(false) }
   }
@@ -131,11 +139,10 @@ function PersonalSettings() {
 function ProjectManagement() {
   const { t } = useTranslation()
   const { appUser } = useAuth()
-  const { refreshProjects } = useProject()
-  const [projects, setProjects] = useState<Project[]>([])
-  const [users, setUsers] = useState<AppUser[]>([])
-  const [loading, setLoading] = useState(true)
-  const [defaultProjectId, setDefaultProjectId] = useState('')
+  const { projects } = useProject()
+  const { data: users = [], isLoading: usersLoading } = useUsers()
+  const { data: globalSettings } = useGlobalSettings()
+  const defaultProjectId = globalSettings?.defaultProjectId || ''
   const [showCreate, setShowCreate] = useState(false)
   const [newName, setNewName] = useState('')
   const [newDesc, setNewDesc] = useState('')
@@ -144,42 +151,33 @@ function ProjectManagement() {
   const [editData, setEditData] = useState({ name: '', description: '', documentNo: '', driveFolders: { operations: '', preparation: '', bankbook: '' } })
   const [savingEdit, setSavingEdit] = useState(false)
 
-  useEffect(() => {
-    const fetch = async () => {
-      try {
-        const [projSnap, userSnap, globalSnap] = await Promise.all([
-          getDocs(collection(db, 'projects')),
-          getDocs(collection(db, 'users')),
-          getDoc(doc(db, 'settings', 'global')),
-        ])
-        setProjects(projSnap.docs.map(d => ({ id: d.id, ...d.data() } as Project)))
-        setUsers(userSnap.docs.map(d => d.data() as AppUser))
-        if (globalSnap.exists()) setDefaultProjectId(globalSnap.data().defaultProjectId || '')
-      } catch (err) { console.error('Failed to fetch projects:', err) }
-      finally { setLoading(false) }
-    }
-    fetch()
-  }, [])
+  const createProject = useCreateProject()
+  const updateProjectMutation = useUpdateProject()
+  const updateMembersMutation = useUpdateProjectMembers()
+  const updateSettings = useUpdateGlobalSettings()
+
+  const loading = usersLoading
 
   const handleCreate = async () => {
     if (!newName.trim() || !appUser) return
     setCreating(true)
     try {
-      const ref = doc(collection(db, 'projects'))
-      await setDoc(ref, {
-        name: newName.trim(),
-        description: newDesc.trim(),
-        createdAt: serverTimestamp(),
-        createdBy: { uid: appUser.uid, name: appUser.displayName || appUser.name, email: appUser.email },
-        budgetConfig: { totalBudget: 0, byCode: {} },
-        documentNo: '',
-        driveFolders: { operations: '', preparation: '', bankbook: '' },
-        memberUids: [appUser.uid],
-        isActive: true,
+      const newDocRef = doc(collection(db, 'projects'))
+      await createProject.mutateAsync({
+        projectId: newDocRef.id,
+        project: {
+          name: newName.trim(),
+          description: newDesc.trim(),
+          createdAt: serverTimestamp(),
+          createdBy: { uid: appUser.uid, name: appUser.displayName || appUser.name, email: appUser.email },
+          budgetConfig: { totalBudget: 0, byCode: {} },
+          documentNo: '',
+          driveFolders: { operations: '', preparation: '', bankbook: '' },
+          memberUids: [appUser.uid],
+          isActive: true,
+        } as unknown as Omit<Project, 'id'>,
       })
-      setProjects(prev => [...prev, { id: ref.id, name: newName.trim(), description: newDesc.trim(), memberUids: [appUser.uid], isActive: true } as Project])
       setNewName(''); setNewDesc(''); setShowCreate(false)
-      await refreshProjects()
     } catch (err) { console.error('Failed to create project:', err) }
     finally { setCreating(false) }
   }
@@ -187,16 +185,13 @@ function ProjectManagement() {
   const handleDelete = async (projectId: string) => {
     if (!confirm(t('common.confirm') + '?')) return
     try {
-      await deleteDoc(doc(db, 'projects', projectId))
-      setProjects(prev => prev.filter(p => p.id !== projectId))
-      await refreshProjects()
+      await updateProjectMutation.mutateAsync({ projectId, data: { isActive: false } })
     } catch (err) { console.error('Failed to delete project:', err) }
   }
 
   const handleSetDefault = async (projectId: string) => {
     try {
-      await setDoc(doc(db, 'settings', 'global'), { defaultProjectId: projectId }, { merge: true })
-      setDefaultProjectId(projectId)
+      await updateSettings.mutateAsync({ defaultProjectId: projectId })
     } catch (err) { console.error('Failed to set default:', err) }
   }
 
@@ -214,34 +209,30 @@ function ProjectManagement() {
     if (!editingId) return
     setSavingEdit(true)
     try {
-      await setDoc(doc(db, 'projects', editingId), {
-        name: editData.name,
-        description: editData.description,
-        documentNo: editData.documentNo,
-        driveFolders: editData.driveFolders,
-      }, { merge: true })
-      setProjects(prev => prev.map(p => p.id === editingId ? { ...p, ...editData } : p))
+      await updateProjectMutation.mutateAsync({
+        projectId: editingId,
+        data: {
+          name: editData.name,
+          description: editData.description,
+          documentNo: editData.documentNo,
+          driveFolders: editData.driveFolders,
+        },
+      })
       setEditingId(null)
-      await refreshProjects()
     } catch (err) { console.error('Failed to save:', err) }
     finally { setSavingEdit(false) }
   }
 
   const handleToggleMember = async (projectId: string, uid: string, add: boolean) => {
+    const project = projects.find(p => p.id === projectId)
+    if (!project) return
     try {
-      const batch = writeBatch(db)
-      batch.update(doc(db, 'projects', projectId), {
-        memberUids: add ? arrayUnion(uid) : arrayRemove(uid),
+      await updateMembersMutation.mutateAsync({
+        projectId,
+        addUids: add ? [uid] : [],
+        removeUids: add ? [] : [uid],
+        currentMemberUids: project.memberUids || [],
       })
-      batch.update(doc(db, 'users', uid), {
-        projectIds: add ? arrayUnion(projectId) : arrayRemove(projectId),
-      })
-      await batch.commit()
-      setProjects(prev => prev.map(p => {
-        if (p.id !== projectId) return p
-        const members = p.memberUids || []
-        return { ...p, memberUids: add ? [...members, uid] : members.filter(u => u !== uid) }
-      }))
     } catch (err) { console.error('Failed to toggle member:', err) }
   }
 

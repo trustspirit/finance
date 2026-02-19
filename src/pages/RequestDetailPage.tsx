@@ -1,9 +1,8 @@
-import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { doc, getDoc } from 'firebase/firestore'
-import { db } from '../lib/firebase'
 import { useAuth } from '../contexts/AuthContext'
-import { PaymentRequest, AppUser } from '../types'
+
+import { useRequest } from '../hooks/queries/useRequests'
+import { useUser } from '../hooks/queries/useUsers'
 import { useTranslation } from 'react-i18next'
 import Layout from '../components/Layout'
 import StatusBadge from '../components/StatusBadge'
@@ -17,31 +16,9 @@ export default function RequestDetailPage() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [request, setRequest] = useState<PaymentRequest | null>(null)
-  const [requester, setRequester] = useState<AppUser | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    if (!id) return
-    const fetchRequest = async () => {
-      try {
-        const snap = await getDoc(doc(db, 'requests', id))
-        if (snap.exists()) {
-          const data = { id: snap.id, ...snap.data() } as PaymentRequest
-          setRequest(data)
-          const userSnap = await getDoc(doc(db, 'users', data.requestedBy.uid))
-          if (userSnap.exists()) {
-            setRequester(userSnap.data() as AppUser)
-          }
-        }
-      } catch (error) {
-        console.error('Failed to fetch request:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchRequest()
-  }, [id])
+  const { data: request, isLoading: requestLoading } = useRequest(id)
+  const { data: requester, isLoading: requesterLoading } = useUser(request?.requestedBy.uid)
+  const loading = requestLoading || requesterLoading
 
   if (loading) return <Layout><Spinner /></Layout>
   if (!request) return <Layout><div className="text-center py-16 text-gray-500">{t('detail.notFound')}</div></Layout>

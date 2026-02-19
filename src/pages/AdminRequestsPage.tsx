@@ -1,10 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { collection, query, orderBy, getDocs, doc, updateDoc, serverTimestamp, where } from 'firebase/firestore'
-import { db } from '../lib/firebase'
 import { useAuth } from '../contexts/AuthContext'
 import { useProject } from '../contexts/ProjectContext'
-import { PaymentRequest, RequestStatus } from '../types'
+import { RequestStatus } from '../types'
 import Layout from '../components/Layout'
 import StatusBadge from '../components/StatusBadge'
 import SignaturePad from '../components/SignaturePad'
@@ -13,39 +11,21 @@ import PageHeader from '../components/PageHeader'
 import Modal from '../components/Modal'
 import { useTranslation } from 'react-i18next'
 import { canApproveCommittee } from '../lib/roles'
+import { useRequests, useApproveRequest, useRejectRequest } from '../hooks/queries/useRequests'
 
 export default function AdminRequestsPage() {
   const { t } = useTranslation()
   const { user, appUser } = useAuth()
   const { currentProject } = useProject()
   const role = appUser?.role || 'user'
-  const [requests, setRequests] = useState<PaymentRequest[]>([])
-  const [loading, setLoading] = useState(true)
+  const { data: requests = [], isLoading: loading } = useRequests(currentProject?.id)
+  const approveMutation = useApproveRequest()
+  const rejectMutation = useRejectRequest()
   const [filter, setFilter] = useState<RequestStatus | 'all'>('all')
   const [signModalRequestId, setSignModalRequestId] = useState<string | null>(null)
   const [signatureData, setSignatureData] = useState(appUser?.signature || '')
   const [rejectModalRequestId, setRejectModalRequestId] = useState<string | null>(null)
   const [rejectionReason, setRejectionReason] = useState('')
-
-  useEffect(() => {
-    if (!currentProject?.id) return
-    const fetchRequests = async () => {
-      try {
-        const q = query(
-          collection(db, 'requests'),
-          where('projectId', '==', currentProject.id),
-          orderBy('createdAt', 'desc')
-        )
-        const snap = await getDocs(q)
-        setRequests(snap.docs.map((d) => ({ id: d.id, ...d.data() } as PaymentRequest)))
-      } catch (error) {
-        console.error('Failed to fetch requests:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchRequests()
-  }, [currentProject?.id])
 
   const handleApproveWithSign = (requestId: string) => {
     const req = requests.find((r) => r.id === requestId)
@@ -59,7 +39,7 @@ export default function AdminRequestsPage() {
     setSignModalRequestId(requestId)
   }
 
-  const handleConfirmApproval = async () => {
+  const handleConfirmApproval = () => {
     if (!user || !appUser || !signModalRequestId) return
     if (!signatureData) {
       alert(t('approval.signTitle'))
@@ -68,26 +48,17 @@ export default function AdminRequestsPage() {
 
     const approverName = appUser.displayName || appUser.name
 
-    try {
-      await updateDoc(doc(db, 'requests', signModalRequestId), {
-        status: 'approved',
-        approvedBy: { uid: user.uid, name: approverName, email: appUser.email },
-        approvalSignature: signatureData,
-        approvedAt: serverTimestamp(),
-      })
-
-      setRequests((prev) =>
-        prev.map((r) =>
-          r.id === signModalRequestId
-            ? { ...r, status: 'approved' as const, approvedBy: { uid: user.uid, name: approverName, email: appUser.email }, approvalSignature: signatureData }
-            : r
-        )
-      )
-      setSignModalRequestId(null)
-    } catch (error) {
-      console.error('Failed to approve:', error)
-      alert(t('form.submitFailed'))
-    }
+    approveMutation.mutate({
+      requestId: signModalRequestId,
+      projectId: currentProject!.id,
+      approver: { uid: user.uid, name: approverName, email: appUser.email },
+      signature: signatureData,
+    }, {
+      onSuccess: () => {
+        setSignModalRequestId(null)
+        setSignatureData(appUser?.signature || '')
+      },
+    })
   }
 
   const handleRejectOpen = (requestId: string) => {
@@ -102,7 +73,7 @@ export default function AdminRequestsPage() {
     setRejectModalRequestId(requestId)
   }
 
-  const handleRejectConfirm = async () => {
+  const handleRejectConfirm = () => {
     if (!user || !appUser || !rejectModalRequestId) return
     if (!rejectionReason.trim()) {
       alert(t('approval.rejectDescription'))
@@ -111,27 +82,17 @@ export default function AdminRequestsPage() {
 
     const approverName = appUser.displayName || appUser.name
 
-    try {
-      await updateDoc(doc(db, 'requests', rejectModalRequestId), {
-        status: 'rejected',
-        approvedBy: { uid: user.uid, name: approverName, email: appUser.email },
-        approvalSignature: null,
-        approvedAt: serverTimestamp(),
-        rejectionReason: rejectionReason.trim(),
-      })
-
-      setRequests((prev) =>
-        prev.map((r) =>
-          r.id === rejectModalRequestId
-            ? { ...r, status: 'rejected' as const, approvedBy: { uid: user.uid, name: approverName, email: appUser.email }, rejectionReason: rejectionReason.trim() }
-            : r
-        )
-      )
-      setRejectModalRequestId(null)
-    } catch (error) {
-      console.error('Failed to reject:', error)
-      alert(t('form.submitFailed'))
-    }
+    rejectMutation.mutate({
+      requestId: rejectModalRequestId,
+      projectId: currentProject!.id,
+      approver: { uid: user.uid, name: approverName, email: appUser.email },
+      rejectionReason,
+    }, {
+      onSuccess: () => {
+        setRejectModalRequestId(null)
+        setRejectionReason('')
+      },
+    })
   }
 
   // Filter by committee access first, then by status

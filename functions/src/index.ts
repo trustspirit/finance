@@ -16,12 +16,16 @@ const FOLDER_IDS: Record<string, string> = {
   bankbook: process.env.GDRIVE_FOLDER_BANKBOOK || '',
 }
 
+let _driveService: ReturnType<typeof google.drive> | null = null
 function getDriveService() {
-  const auth = new google.auth.GoogleAuth({
-    keyFile: SERVICE_ACCOUNT_PATH,
-    scopes: SCOPES,
-  })
-  return google.drive({ version: 'v3', auth })
+  if (!_driveService) {
+    const auth = new google.auth.GoogleAuth({
+      keyFile: SERVICE_ACCOUNT_PATH,
+      scopes: SCOPES,
+    })
+    _driveService = google.drive({ version: 'v3', auth })
+  }
+  return _driveService
 }
 
 interface FileInput {
@@ -47,7 +51,7 @@ async function uploadFileToDrive(drive: ReturnType<typeof getDriveService>, file
   stream.push(buffer)
   stream.push(null)
 
-  const response = await (await drive).files.create({
+  const response = await drive.files.create({
     requestBody: {
       name: `${Date.now()}_${file.name}`,
       parents: [folderId],
@@ -56,7 +60,7 @@ async function uploadFileToDrive(drive: ReturnType<typeof getDriveService>, file
     fields: 'id, webViewLink',
   })
 
-  await (await drive).permissions.create({
+  await drive.permissions.create({
     fileId: response.data.id!,
     requestBody: { role: 'reader', type: 'anyone' },
   })

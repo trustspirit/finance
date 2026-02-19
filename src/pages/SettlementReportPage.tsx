@@ -1,11 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { doc, getDoc } from 'firebase/firestore'
-import { db } from '../lib/firebase'
 import { useTranslation } from 'react-i18next'
+import { useProject } from '../contexts/ProjectContext'
 import { formatFirestoreDate } from '../lib/utils'
 import { exportSettlementPdf } from '../lib/pdfExport'
-import { Settlement } from '../types'
+import { useSettlement } from '../hooks/queries/useSettlements'
 import Layout from '../components/Layout'
 import Spinner from '../components/Spinner'
 import InfoGrid from '../components/InfoGrid'
@@ -16,45 +15,24 @@ import FinanceVerification from '../components/FinanceVerification'
 export default function SettlementReportPage() {
   const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
-  const [settlement, setSettlement] = useState<Settlement | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { currentProject } = useProject()
+  const { data: settlement, isLoading: loading } = useSettlement(id)
+  const documentNo = currentProject?.documentNo || ''
+  const projectName = currentProject?.name || ''
   const [exporting, setExporting] = useState(false)
-  const [documentNo, setDocumentNo] = useState('')
-
-  useEffect(() => {
-    if (!id) return
-    const fetch = async () => {
-      try {
-        const snap = await getDoc(doc(db, 'settlements', id))
-        if (snap.exists()) {
-          const data = { id: snap.id, ...snap.data() } as Settlement
-          setSettlement(data)
-          if (data.projectId) {
-            const projectSnap = await getDoc(doc(db, 'projects', data.projectId))
-            if (projectSnap.exists()) {
-              setDocumentNo(projectSnap.data().documentNo || '')
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Failed to fetch settlement:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetch()
-  }, [id])
 
   const handleExportPdf = async () => {
     if (!settlement) return
     setExporting(true)
-    const success = await exportSettlementPdf(settlement, documentNo)
+    const success = await exportSettlementPdf(settlement, documentNo, projectName)
     if (!success) alert('Popup blocked. Please allow popups for this site.')
     setExporting(false)
   }
 
   if (loading) return <Layout><Spinner /></Layout>
-  if (!settlement) return <Layout><p className="text-gray-500">{t('detail.notFound')}</p></Layout>
+  if (!settlement || (currentProject && settlement.projectId !== currentProject.id)) {
+    return <Layout><p className="text-gray-500">{t('detail.notFound')}</p></Layout>
+  }
 
   const dateStr = formatFirestoreDate(settlement.createdAt)
 

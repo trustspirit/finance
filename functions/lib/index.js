@@ -48,12 +48,16 @@ const FOLDER_IDS = {
     preparation: process.env.GDRIVE_FOLDER_PREPARATION || '',
     bankbook: process.env.GDRIVE_FOLDER_BANKBOOK || '',
 };
+let _driveService = null;
 function getDriveService() {
-    const auth = new googleapis_1.google.auth.GoogleAuth({
-        keyFile: SERVICE_ACCOUNT_PATH,
-        scopes: SCOPES,
-    });
-    return googleapis_1.google.drive({ version: 'v3', auth });
+    if (!_driveService) {
+        const auth = new googleapis_1.google.auth.GoogleAuth({
+            keyFile: SERVICE_ACCOUNT_PATH,
+            scopes: SCOPES,
+        });
+        _driveService = googleapis_1.google.drive({ version: 'v3', auth });
+    }
+    return _driveService;
 }
 async function uploadFileToDrive(drive, file, folderId) {
     if (!file.data.includes(',')) {
@@ -65,7 +69,7 @@ async function uploadFileToDrive(drive, file, folderId) {
     const stream = new stream_1.Readable();
     stream.push(buffer);
     stream.push(null);
-    const response = await (await drive).files.create({
+    const response = await drive.files.create({
         requestBody: {
             name: `${Date.now()}_${file.name}`,
             parents: [folderId],
@@ -73,7 +77,7 @@ async function uploadFileToDrive(drive, file, folderId) {
         media: { mimeType, body: stream },
         fields: 'id, webViewLink',
     });
-    await (await drive).permissions.create({
+    await drive.permissions.create({
         fileId: response.data.id,
         requestBody: { role: 'reader', type: 'anyone' },
     });

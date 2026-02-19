@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useBlocker } from 'react-router-dom'
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore'
-import { httpsCallable } from 'firebase/functions'
-import { db, functions } from '../lib/firebase'
+import { useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '../hooks/queries/queryKeys'
 import { useAuth } from '../contexts/AuthContext'
 import { useProject } from '../contexts/ProjectContext'
-import { updateDoc, doc } from 'firebase/firestore'
+import { useCreateRequest } from '../hooks/queries/useRequests'
+import { useUploadReceipts } from '../hooks/queries/useCloudFunctions'
 import { RequestItem, Receipt, Committee } from '../types'
 import Layout from '../components/Layout'
 import ItemRow from '../components/ItemRow'
@@ -51,11 +51,15 @@ function clearDraft() {
 
 export default function RequestFormPage() {
   const { t } = useTranslation()
-  const { user, appUser } = useAuth()
+  const { user, appUser, updateAppUser } = useAuth()
   const { currentProject } = useProject()
   const navigate = useNavigate()
 
-  const draft = loadDraft()
+  const queryClient = useQueryClient()
+  const createRequest = useCreateRequest()
+  const uploadReceiptsMutation = useUploadReceipts()
+
+  const [draft] = useState(loadDraft)
 
   const [payee, setPayee] = useState(draft?.payee || appUser?.displayName || appUser?.name || '')
   const [phone, setPhone] = useState(draft?.phone || appUser?.phone || '')
@@ -176,18 +180,17 @@ export default function RequestFormPage() {
     try {
       let receipts: Receipt[] = []
       if (files.length > 0) {
-        const uploadFn = httpsCallable<{ files: { name: string; data: string }[]; committee: string; projectId: string }, Receipt[]>(
-          functions,
-          'uploadReceipts'
-        )
         const fileData = await Promise.all(
           files.map(async (f) => ({
             name: f.name,
             data: await fileToBase64(f),
           }))
         )
-        const result = await uploadFn({ files: fileData, committee, projectId: currentProject!.id })
-        receipts = result.data
+        receipts = await uploadReceiptsMutation.mutateAsync({
+          files: fileData,
+          committee,
+          projectId: currentProject!.id,
+        })
       }
 
       const profileUpdates: Record<string, string> = {}
@@ -195,11 +198,11 @@ export default function RequestFormPage() {
       if (bankName.trim() !== (appUser.bankName || '')) profileUpdates.bankName = bankName.trim()
       if (bankAccount.trim() !== (appUser.bankAccount || '')) profileUpdates.bankAccount = bankAccount.trim()
       if (Object.keys(profileUpdates).length > 0) {
-        await updateDoc(doc(db, 'users', user.uid), profileUpdates)
+        await updateAppUser(profileUpdates)
+        queryClient.invalidateQueries({ queryKey: queryKeys.users.all() })
       }
 
-      await addDoc(collection(db, 'requests'), {
-        createdAt: serverTimestamp(),
+      await createRequest.mutateAsync({
         projectId: currentProject!.id,
         status: 'pending',
         payee,

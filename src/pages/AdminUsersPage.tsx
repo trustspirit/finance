@@ -1,9 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { collection, getDocs, doc, updateDoc } from 'firebase/firestore'
-import { db } from '../lib/firebase'
 import { useAuth } from '../contexts/AuthContext'
-import { AppUser, UserRole } from '../types'
+import { useUsers, useUpdateUserRole } from '../hooks/queries/useUsers'
+import { UserRole } from '../types'
 import Layout from '../components/Layout'
 import Spinner from '../components/Spinner'
 import PageHeader from '../components/PageHeader'
@@ -12,9 +11,8 @@ import EmptyState from '../components/EmptyState'
 export default function AdminUsersPage() {
   const { t } = useTranslation()
   const { appUser: currentUser } = useAuth()
-  const [users, setUsers] = useState<AppUser[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { data: users = [], isLoading: loading, error } = useUsers()
+  const updateRole = useUpdateUserRole()
   const [successUid, setSuccessUid] = useState<string | null>(null)
 
   const ROLE_LABELS: Record<UserRole, string> = {
@@ -25,23 +23,7 @@ export default function AdminUsersPage() {
     admin: t('role.admin'),
   }
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        setError(null)
-        const snap = await getDocs(collection(db, 'users'))
-        setUsers(snap.docs.map((d) => d.data() as AppUser))
-      } catch (err) {
-        console.error('Failed to fetch users:', err)
-        setError(t('users.noUsers'))
-      } finally {
-        setLoading(false)
-      }
-    }
-    fetchUsers()
-  }, [t])
-
-  const handleRoleChange = async (uid: string, newRole: UserRole) => {
+  const handleRoleChange = (uid: string, newRole: UserRole) => {
     if (uid === currentUser?.uid) {
       alert(t('users.selfChangeError'))
       return
@@ -49,15 +31,18 @@ export default function AdminUsersPage() {
     const confirmed = window.confirm(t('users.roleChangeConfirm', { role: ROLE_LABELS[newRole] }))
     if (!confirmed) return
 
-    try {
-      await updateDoc(doc(db, 'users', uid), { role: newRole })
-      setUsers((prev) => prev.map((u) => (u.uid === uid ? { ...u, role: newRole } : u)))
-      setSuccessUid(uid)
-      setTimeout(() => setSuccessUid(null), 2000)
-    } catch (error) {
-      console.error('Failed to update role:', error)
-      alert(t('users.roleChangeFailed'))
-    }
+    updateRole.mutate(
+      { uid, role: newRole },
+      {
+        onSuccess: () => {
+          setSuccessUid(uid)
+          setTimeout(() => setSuccessUid(null), 2000)
+        },
+        onError: () => {
+          alert(t('users.roleChangeFailed'))
+        },
+      },
+    )
   }
 
   return (
@@ -66,7 +51,7 @@ export default function AdminUsersPage() {
       {loading ? (
         <Spinner />
       ) : error ? (
-        <p className="text-red-500 text-sm">{error}</p>
+        <p className="text-red-500 text-sm">{error?.message}</p>
       ) : users.length === 0 ? (
         <EmptyState title={t('users.noUsers')} />
       ) : (
