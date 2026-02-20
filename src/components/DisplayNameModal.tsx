@@ -47,7 +47,7 @@ export default function DisplayNameModal() {
         const uploadFn = httpsCallable<
           { file: { name: string; data: string } },
           { fileName: string; storagePath: string; url: string }
-        >(functions, 'uploadBankBook')
+        >(functions, 'uploadBankBookV2')
         const result = await uploadFn({ file: { name: bankBookFile.name, data } })
         const { storagePath, url } = result.data
         await updateAppUser({

@@ -59,13 +59,7 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-sa-key.json
         run: npx firebase-tools deploy --only hosting --project finance-96f46
 
-      - name: Delete old 1st Gen functions
-        env:
-          GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-sa-key.json
-        run: npx firebase-tools functions:delete uploadReceipts uploadBankBook downloadFile --project finance-96f46 --force
-        continue-on-error: true
-
-      - name: Deploy Functions (2nd Gen)
+      - name: Deploy Functions
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-sa-key.json
         run: npx firebase-tools deploy --only functions --project finance-96f46 --force

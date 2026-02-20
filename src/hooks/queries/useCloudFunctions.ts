@@ -22,7 +22,7 @@ interface UploadBankBookResult {
 export function useUploadReceipts() {
   return useMutation({
     mutationFn: async (input: UploadReceiptsInput) => {
-      const uploadFn = httpsCallable<UploadReceiptsInput, Receipt[]>(functions, 'uploadReceipts')
+      const uploadFn = httpsCallable<UploadReceiptsInput, Receipt[]>(functions, 'uploadReceiptsV2')
       const result = await uploadFn(input)
       return result.data
     },
@@ -32,7 +32,7 @@ export function useUploadReceipts() {
 export function useUploadBankBook() {
   return useMutation({
     mutationFn: async (input: UploadBankBookInput) => {
-      const uploadFn = httpsCallable<UploadBankBookInput, UploadBankBookResult>(functions, 'uploadBankBook')
+      const uploadFn = httpsCallable<UploadBankBookInput, UploadBankBookResult>(functions, 'uploadBankBookV2')
       const result = await uploadFn(input)
       return result.data
     },

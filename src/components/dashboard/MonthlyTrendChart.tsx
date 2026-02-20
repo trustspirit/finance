@@ -50,22 +50,14 @@ export default function MonthlyTrendChart({ requests }: Props) {
 
   if (!hasData) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-sm font-medium text-gray-700 mb-4">
-          {t("dashboard.monthlyTrend")}
-        </h3>
-        <div className="flex items-center justify-center h-[250px] text-gray-400 text-sm">
-          {t("common.noData")}
-        </div>
+      <div className="flex items-center justify-center h-[250px] text-gray-400 text-sm">
+        {t("common.noData")}
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <h3 className="text-sm font-medium text-gray-700 mb-4">
-        {t("dashboard.monthlyTrend")}
-      </h3>
+    <>
       <div className="h-[250px]">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data}>
@@ -141,6 +133,6 @@ export default function MonthlyTrendChart({ requests }: Props) {
           <span className="text-gray-600">{t("dashboard.requestAmount")}</span>
         </div>
       </div>
-    </div>
+    </>
   );
 }

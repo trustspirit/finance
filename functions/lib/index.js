@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.downloadFile = exports.uploadBankBook = exports.uploadReceipts = void 0;
+exports.downloadFileV2 = exports.uploadBankBookV2 = exports.uploadReceiptsV2 = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
 admin.initializeApp();
@@ -59,7 +59,7 @@ async function uploadFileToStorage(file, storagePath) {
     };
 }
 // 영수증 업로드
-exports.uploadReceipts = (0, https_1.onCall)(async (request) => {
+exports.uploadReceiptsV2 = (0, https_1.onCall)(async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Must be logged in');
     }
@@ -75,7 +75,7 @@ exports.uploadReceipts = (0, https_1.onCall)(async (request) => {
     return results;
 });
 // 통장사본 업로드
-exports.uploadBankBook = (0, https_1.onCall)(async (request) => {
+exports.uploadBankBookV2 = (0, https_1.onCall)(async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Must be logged in');
     }
@@ -100,7 +100,7 @@ exports.uploadBankBook = (0, https_1.onCall)(async (request) => {
     return await uploadFileToStorage(file, storagePath);
 });
 // 파일 다운로드 프록시 (CORS 우회)
-exports.downloadFile = (0, https_1.onCall)(async (request) => {
+exports.downloadFileV2 = (0, https_1.onCall)(async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'Must be logged in');
     }

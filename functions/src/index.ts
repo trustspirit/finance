@@ -41,7 +41,7 @@ async function uploadFileToStorage(file: FileInput, storagePath: string): Promis
 }
 
 // 영수증 업로드
-export const uploadReceipts = onCall(async (request) => {
+export const uploadReceiptsV2 = onCall(async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Must be logged in')
   }
@@ -64,7 +64,7 @@ export const uploadReceipts = onCall(async (request) => {
 })
 
 // 통장사본 업로드
-export const uploadBankBook = onCall(async (request) => {
+export const uploadBankBookV2 = onCall(async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Must be logged in')
   }
@@ -92,7 +92,7 @@ export const uploadBankBook = onCall(async (request) => {
 })
 
 // 파일 다운로드 프록시 (CORS 우회)
-export const downloadFile = onCall(async (request) => {
+export const downloadFileV2 = onCall(async (request) => {
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'Must be logged in')
   }

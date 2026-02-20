@@ -43,13 +43,8 @@ export default function BudgetCodeBarChart({
 
   if (data.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-sm font-medium text-gray-700 mb-4">
-          {t("dashboard.byBudgetCode")}
-        </h3>
-        <div className="flex items-center justify-center h-[250px] text-gray-400 text-sm">
-          {t("common.noData")}
-        </div>
+      <div className="flex items-center justify-center h-[250px] text-gray-400 text-sm">
+        {t("common.noData")}
       </div>
     );
   }
@@ -60,54 +55,49 @@ export default function BudgetCodeBarChart({
       : v.toLocaleString();
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <h3 className="text-sm font-medium text-gray-700 mb-4">
-        {t("dashboard.byBudgetCode")}
-      </h3>
-      <div className="h-[250px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} layout="vertical">
-            <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
-            <XAxis
-              type="number"
-              tick={{ fontSize: 12 }}
-              tickFormatter={formatAxis}
-            />
-            <YAxis
-              type="category"
-              dataKey="name"
-              tick={{ fontSize: 11 }}
-              width={100}
-            />
-            <Tooltip
-              formatter={(v: number | undefined) =>
-                `\u20A9${(v ?? 0).toLocaleString()}`
-              }
-            />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
-            {hasBudget && (
-              <Bar
-                dataKey="allocated"
-                name={t("dashboard.allocatedBudget")}
-                fill="#D1D5DB"
-                radius={[0, 4, 4, 0]}
-              />
-            )}
+    <div className="h-[250px]">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart data={data} layout="vertical">
+          <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
+          <XAxis
+            type="number"
+            tick={{ fontSize: 12 }}
+            tickFormatter={formatAxis}
+          />
+          <YAxis
+            type="category"
+            dataKey="name"
+            tick={{ fontSize: 11 }}
+            width={100}
+          />
+          <Tooltip
+            formatter={(v: number | undefined) =>
+              `\u20A9${(v ?? 0).toLocaleString()}`
+            }
+          />
+          <Legend wrapperStyle={{ fontSize: 12 }} />
+          {hasBudget && (
             <Bar
-              dataKey="approved"
-              name={t("dashboard.approvedAmount")}
+              dataKey="allocated"
+              name={t("dashboard.allocatedBudget")}
+              fill="#D1D5DB"
               radius={[0, 4, 4, 0]}
-            >
-              {data.map((entry) => (
-                <Cell
-                  key={entry.code}
-                  fill={entry.over ? "#EF4444" : "#3B82F6"}
-                />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+            />
+          )}
+          <Bar
+            dataKey="approved"
+            name={t("dashboard.approvedAmount")}
+            radius={[0, 4, 4, 0]}
+          >
+            {data.map((entry) => (
+              <Cell
+                key={entry.code}
+                fill={entry.over ? "#EF4444" : "#3B82F6"}
+              />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
     </div>
   );
 }

@@ -6,7 +6,6 @@ import { UNIQUE_BUDGET_CODES } from "../constants/budgetCodes";
 import Layout from "../components/Layout";
 import Spinner from "../components/Spinner";
 import BudgetWarningBanner from "../components/BudgetWarningBanner";
-import StatusDonutChart from "../components/dashboard/StatusDonutChart";
 import BudgetRingGauge from "../components/dashboard/BudgetRingGauge";
 import MonthlyTrendChart from "../components/dashboard/MonthlyTrendChart";
 import CommitteeBarChart from "../components/dashboard/CommitteeBarChart";
@@ -317,35 +316,23 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Budget Ring Gauge + Status Donut */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      {/* Budget Ring Gauge */}
+      <div className="mb-6">
         <BudgetRingGauge
           totalBudget={budget.totalBudget}
           approvedAmount={stats.approvedAmount}
           pendingAmount={stats.pendingAmount}
         />
-        <StatusDonutChart
-          pending={stats.pending}
-          approved={stats.approvedOnly}
-          settled={stats.settled}
-          rejected={stats.rejected}
-        />
       </div>
 
-      {/* Monthly Trend */}
-      <div className="mb-6">
-        <MonthlyTrendChart requests={requests} />
-      </div>
-
-      {/* Committee + Budget Code Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <CommitteeBarChart byCommittee={stats.byCommittee} />
-        <BudgetCodeBarChart
-          byBudgetCode={stats.byBudgetCode}
-          budgetByCode={budget.byCode}
-          hasBudget={budget.totalBudget > 0}
-        />
-      </div>
+      {/* Tabbed Charts */}
+      <TabbedCharts
+        requests={requests}
+        byCommittee={stats.byCommittee}
+        byBudgetCode={stats.byBudgetCode}
+        budgetByCode={budget.byCode}
+        hasBudget={budget.totalBudget > 0}
+      />
 
       {/* Budget Settings */}
       {canEditBudget && (
@@ -562,6 +549,70 @@ export default function DashboardPage() {
         </div>
       )}
     </Layout>
+  );
+}
+
+type ChartTab = "monthly" | "committee" | "budgetCode";
+
+function TabbedCharts({
+  requests,
+  byCommittee,
+  byBudgetCode,
+  budgetByCode,
+  hasBudget,
+}: {
+  requests: { date: string; totalAmount: number }[];
+  byCommittee: Record<
+    string,
+    { count: number; amount: number; approvedAmount: number }
+  >;
+  byBudgetCode: Record<
+    number,
+    { count: number; amount: number; approvedAmount: number }
+  >;
+  budgetByCode: Record<number, number>;
+  hasBudget: boolean;
+}) {
+  const { t } = useTranslation();
+  const [tab, setTab] = useState<ChartTab>("monthly");
+
+  const tabs: { key: ChartTab; label: string }[] = [
+    { key: "monthly", label: t("dashboard.monthlyTrend") },
+    { key: "committee", label: t("dashboard.byCommittee") },
+    { key: "budgetCode", label: t("dashboard.byBudgetCode") },
+  ];
+
+  return (
+    <div className="bg-white rounded-lg shadow mb-6">
+      <div className="border-b px-4 flex gap-1 overflow-x-auto">
+        {tabs.map((item) => (
+          <button
+            key={item.key}
+            onClick={() => setTab(item.key)}
+            className={`px-3 py-2.5 text-sm whitespace-nowrap border-b-2 transition-colors ${
+              tab === item.key
+                ? "border-blue-600 text-blue-600 font-medium"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+      <div className="p-4">
+        {tab === "monthly" && <MonthlyTrendChart requests={requests} />}
+        {tab === "committee" && (
+          <CommitteeBarChart byCommittee={byCommittee} />
+        )}
+        {tab === "budgetCode" && (
+          <BudgetCodeBarChart
+            byBudgetCode={byBudgetCode}
+            budgetByCode={budgetByCode}
+            hasBudget={hasBudget}
+          />
+        )}
+      </div>
+    </div>
   );
 }
 

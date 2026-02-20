@@ -120,7 +120,7 @@ export default function ReceiptsPage() {
   const downloadFn = httpsCallable<
     { storagePath: string },
     { data: string; contentType: string; fileName: string }
-  >(functions, "downloadFile");
+  >(functions, "downloadFileV2");
 
   const downloadOneFile = async (
     row: ReceiptRow,
