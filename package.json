@@ -14,8 +14,6 @@
     "seed:clear": "npx tsx scripts/clear.ts",
     "migrate:projects": "npx tsx scripts/migrate-projects.ts",
     "migrate:projects:emulator": "npx tsx scripts/migrate-projects.ts --emulator",
-    "migrate:clear-bankbook": "npx tsx scripts/migrate-clear-bankbook-image.ts",
-    "migrate:clear-bankbook:dry": "npx tsx scripts/migrate-clear-bankbook-image.ts --dry-run",
     "deploy": "npm run build && firebase deploy --only hosting --project finance-96f46",
     "deploy:functions": "cd functions && npm run build && cd .. && firebase deploy --only functions --project finance-96f46",
     "deploy:all": "npm run build && cd functions && npm run build && cd .. && firebase deploy --project finance-96f46"
