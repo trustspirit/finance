@@ -17,10 +17,11 @@ service cloud.firestore {
         && (
           get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'director', 'finance', 'approver_ops', 'approver_prep']
           || (
-            // Allow requester to cancel their own pending request
+            // Allow requester to cancel their own pending request (status field only)
             resource.data.requestedBy.uid == request.auth.uid
             && resource.data.status == 'pending'
             && request.resource.data.status == 'cancelled'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
           )
         );
     }

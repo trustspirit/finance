@@ -56,7 +56,7 @@ export default function RequestDetailPage() {
             <h3 className="text-sm font-medium text-gray-700 mb-3">{t('field.bankBook')}</h3>
             <div className="border border-gray-200 rounded-lg overflow-hidden inline-block">
               <a href={requester.bankBookUrl || requester.bankBookDriveUrl} target="_blank" rel="noopener noreferrer">
-                <img src={requester.bankBookImage || requester.bankBookUrl || requester.bankBookDriveUrl || ''}
+                <img src={requester.bankBookUrl || requester.bankBookDriveUrl || ''}
                   alt={t('field.bankBook')} className="max-h-48 object-contain bg-gray-50" />
               </a>
               <div className="px-3 py-2 bg-gray-50 border-t">

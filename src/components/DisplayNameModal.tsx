@@ -56,7 +56,7 @@ export default function DisplayNameModal() {
           bankName: bankName.trim(),
           bankAccount: bankAccount.trim(),
           defaultCommittee: committee,
-          bankBookImage: data,
+          bankBookImage: '',
           bankBookPath: storagePath,
           bankBookUrl: url,
         })

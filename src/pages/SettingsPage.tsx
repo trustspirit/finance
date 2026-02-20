@@ -99,7 +99,7 @@ function PersonalSettings() {
               <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">{t('settings.bankBookUploaded')}</span>
               <a href={appUser?.bankBookUrl || appUser?.bankBookDriveUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline">{t('settings.bankBookViewDrive')}</a>
             </div>
-            {appUser?.bankBookImage && <img src={appUser.bankBookImage} alt={t('field.bankBook')} className="max-h-32 border border-gray-200 rounded" />}
+            {(appUser?.bankBookUrl || appUser?.bankBookDriveUrl) && <img src={appUser.bankBookUrl || appUser.bankBookDriveUrl} alt={t('field.bankBook')} className="max-h-32 border border-gray-200 rounded" />}
           </div>
         )}
         <div className="flex items-center gap-2">

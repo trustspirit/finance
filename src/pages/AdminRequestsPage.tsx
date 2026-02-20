@@ -118,7 +118,7 @@ export default function AdminRequestsPage() {
   const filtered = filter === 'all' ? accessible : accessible.filter((r) => r.status === filter)
 
   const bankBookUrl = requester?.bankBookUrl || requester?.bankBookDriveUrl
-  const bankBookImg = requester?.bankBookImage || bankBookUrl
+  const bankBookImg = bankBookUrl
 
   return (
     <Layout>
