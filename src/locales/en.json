@@ -256,6 +256,7 @@
     "select": "Select Project",
     "directorThreshold": "Director Approval Threshold",
     "directorThresholdHint": "Requests above this amount require director or admin approval.",
+    "general": "General",
     "members": "Members",
     "setDefault": "Set as Default",
     "isDefault": "Default Project",

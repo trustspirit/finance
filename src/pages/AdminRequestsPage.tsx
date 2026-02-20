@@ -47,9 +47,9 @@ function SortIcon({
       fill="currentColor"
     >
       {sortDir === "asc" ? (
-        <path d="M6 2l4 5H2l4-5z" />
+        <path d="M6 3l4 6H2l4-6z" />
       ) : (
-        <path d="M6 10L2 5h8l-4 5z" />
+        <path d="M6 9L2 3h8l-4 6z" />
       )}
     </svg>
   );

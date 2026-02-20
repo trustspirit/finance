@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../hooks/queries/queryKeys'
@@ -139,17 +139,30 @@ function PersonalSettings() {
 
 function ProjectManagement() {
   const { t } = useTranslation()
+  const [subTab, setSubTab] = useState<'general' | 'members'>('general')
+
+  return (
+    <div>
+      <div className="flex gap-1 mb-4">
+        {([
+          { key: 'general' as const, label: t('project.general') },
+          { key: 'members' as const, label: t('project.members') },
+        ]).map(item => (
+          <button key={item.key} onClick={() => setSubTab(item.key)}
+            className={`px-3 py-1.5 rounded-md text-sm transition-colors ${subTab === item.key ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-500 hover:bg-gray-100'}`}>
+            {item.label}
+          </button>
+        ))}
+      </div>
+      {subTab === 'general' ? <ProjectGeneralSettings /> : <MemberManagement />}
+    </div>
+  )
+}
+
+function ProjectGeneralSettings() {
+  const { t } = useTranslation()
   const { appUser } = useAuth()
   const { projects } = useProject()
-  const {
-    data: usersData,
-    isLoading: usersLoading,
-    hasNextPage: usersHasNextPage,
-    isFetchingNextPage: usersIsFetchingNextPage,
-    fetchNextPage: usersFetchNextPage,
-  } = useInfiniteUsers()
-  const users = usersData?.pages.flatMap(p => p.items) ?? []
-  const membersContainerRef = useRef<HTMLDivElement>(null)
   const { data: globalSettings } = useGlobalSettings()
   const defaultProjectId = globalSettings?.defaultProjectId || ''
   const queryClient = useQueryClient()
@@ -168,10 +181,9 @@ function ProjectManagement() {
 
   const createProject = useCreateProject()
   const updateProjectMutation = useUpdateProject()
-  const updateMembersMutation = useUpdateProjectMembers()
   const updateSettings = useUpdateGlobalSettings()
 
-  const loading = usersLoading
+  const loading = false
 
   const handleCreate = async () => {
     if (!newName.trim() || !appUser) return
@@ -241,19 +253,6 @@ function ProjectManagement() {
     finally { setSavingEdit(false) }
   }
 
-  const handleToggleMember = async (projectId: string, uid: string, add: boolean) => {
-    const project = projects.find(p => p.id === projectId)
-    if (!project) return
-    try {
-      await updateMembersMutation.mutateAsync({
-        projectId,
-        addUids: add ? [uid] : [],
-        removeUids: add ? [] : [uid],
-        currentMemberUids: project.memberUids || [],
-      })
-    } catch (err) { console.error('Failed to toggle member:', err) }
-  }
-
   if (loading) return <p className="text-sm text-gray-500">{t('common.loading')}</p>
 
   return (
@@ -320,26 +319,6 @@ function ProjectManagement() {
                 </div>
                 <p className="text-xs text-gray-400 mt-1">{t('budget.warningThresholdHint')}</p>
               </div>
-              {/* Members */}
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">{t('project.members')}</label>
-                <div ref={membersContainerRef} className="max-h-40 overflow-y-auto space-y-1">
-                  {users.map(u => (
-                    <label key={u.uid} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 px-2 py-1 rounded">
-                      <input type="checkbox" checked={(p.memberUids || []).includes(u.uid)}
-                        onChange={(e) => handleToggleMember(p.id, u.uid, e.target.checked)} />
-                      <span>{u.displayName || u.name}</span>
-                      <span className="text-xs text-gray-400">{u.email}</span>
-                    </label>
-                  ))}
-                  <InfiniteScrollSentinel
-                    hasNextPage={usersHasNextPage}
-                    isFetchingNextPage={usersIsFetchingNextPage}
-                    fetchNextPage={usersFetchNextPage}
-                    rootRef={membersContainerRef}
-                  />
-                </div>
-              </div>
               <div className="flex gap-2">
                 <button onClick={handleSaveEdit} disabled={savingEdit} className="text-sm bg-blue-600 text-white px-4 py-1.5 rounded hover:bg-blue-700 disabled:bg-gray-400">
                   {savingEdit ? t('common.saving') : t('common.save')}
@@ -376,27 +355,110 @@ function ProjectManagement() {
   )
 }
 
+function MemberManagement() {
+  const { t } = useTranslation()
+  const { projects } = useProject()
+  const {
+    data: usersData,
+    isLoading: usersLoading,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useInfiniteUsers()
+  const users = usersData?.pages.flatMap(p => p.items) ?? []
+  const updateMembersMutation = useUpdateProjectMembers()
+
+  const activeProjects = projects.filter(p => p.isActive)
+  const [selectedProjectId, setSelectedProjectId] = useState(activeProjects[0]?.id || '')
+  const selectedProject = activeProjects.find(p => p.id === selectedProjectId)
+  const membersContainerRef = useRef<HTMLDivElement>(null)
+
+  const memberUids = useMemo(() => new Set(selectedProject?.memberUids || []), [selectedProject?.memberUids])
+
+  const handleToggle = async (uid: string, add: boolean) => {
+    if (!selectedProject) return
+    try {
+      await updateMembersMutation.mutateAsync({
+        projectId: selectedProject.id,
+        addUids: add ? [uid] : [],
+        removeUids: add ? [] : [uid],
+        currentMemberUids: selectedProject.memberUids || [],
+      })
+    } catch (err) { console.error('Failed to toggle member:', err) }
+  }
+
+  if (usersLoading) return <p className="text-sm text-gray-500">{t('common.loading')}</p>
+
+  return (
+    <div className="space-y-4">
+      {activeProjects.length > 1 && (
+        <select
+          value={selectedProjectId}
+          onChange={(e) => setSelectedProjectId(e.target.value)}
+          className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+        >
+          {activeProjects.map(p => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
+      )}
+
+      {selectedProject && (
+        <>
+          <p className="text-xs text-gray-500">
+            {t('project.memberCount', { count: memberUids.size })}
+          </p>
+          <div ref={membersContainerRef} className="max-h-80 overflow-y-auto space-y-1">
+            {users.map(u => (
+              <label key={u.uid} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 px-2 py-1.5 rounded">
+                <input
+                  type="checkbox"
+                  checked={memberUids.has(u.uid)}
+                  onChange={(e) => handleToggle(u.uid, e.target.checked)}
+                />
+                <span className="font-medium">{u.displayName || u.name}</span>
+                <span className="text-xs text-gray-400">{u.email}</span>
+              </label>
+            ))}
+            <InfiniteScrollSentinel
+              hasNextPage={hasNextPage}
+              isFetchingNextPage={isFetchingNextPage}
+              fetchNextPage={fetchNextPage}
+              rootRef={membersContainerRef}
+            />
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 export default function SettingsPage() {
   const { t } = useTranslation()
   const { appUser } = useAuth()
   const isAdmin = appUser?.role === 'admin'
   const [tab, setTab] = useState<'personal' | 'project'>(isAdmin ? 'project' : 'personal')
 
+  const tabs = [
+    ...(isAdmin ? [
+      { key: 'project' as const, label: t('project.projectSettings') },
+    ] : []),
+    { key: 'personal' as const, label: t('project.personalSettings') },
+  ]
+
   return (
     <Layout>
       <div className="bg-white rounded-lg shadow p-6 max-w-lg mx-auto">
         <h2 className="text-xl font-bold mb-6">{t('settings.title')}</h2>
 
-        {isAdmin && (
-          <div className="flex gap-1 mb-6 border-b border-gray-200">
-            <button onClick={() => setTab('project')}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${tab === 'project' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-              {t('project.projectSettings')}
-            </button>
-            <button onClick={() => setTab('personal')}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${tab === 'personal' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-              {t('project.personalSettings')}
-            </button>
+        {tabs.length > 1 && (
+          <div className="flex gap-1 mb-6 border-b border-gray-200 overflow-x-auto">
+            {tabs.map(item => (
+              <button key={item.key} onClick={() => setTab(item.key)}
+                className={`px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${tab === item.key ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+                {item.label}
+              </button>
+            ))}
           </div>
         )}
 

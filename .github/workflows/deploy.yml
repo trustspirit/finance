@@ -17,6 +17,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Detect changes
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            hosting:
+              - 'src/**'
+              - 'public/**'
+              - 'index.html'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'vite.config.*'
+              - 'tsconfig*.json'
+              - 'tailwind.config.*'
+            functions:
+              - 'functions/**'
+            indexes:
+              - 'firestore.indexes.json'
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -29,9 +48,11 @@ jobs:
         run: npm ci
 
       - name: Install functions dependencies
+        if: steps.changes.outputs.functions == 'true'
         run: cd functions && npm ci
 
       - name: Create .env.local
+        if: steps.changes.outputs.hosting == 'true'
         run: |
           echo "VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY }}" >> .env.local
           echo "VITE_FIREBASE_AUTH_DOMAIN=${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}" >> .env.local
@@ -41,25 +62,31 @@ jobs:
           echo "VITE_FIREBASE_APP_ID=${{ secrets.VITE_FIREBASE_APP_ID }}" >> .env.local
 
       - name: Lint
+        if: steps.changes.outputs.hosting == 'true'
         run: npm run lint
 
       - name: Build functions
+        if: steps.changes.outputs.functions == 'true'
         run: cd functions && npm run build
 
       - name: Build
+        if: steps.changes.outputs.hosting == 'true'
         run: npm run build
 
       - name: Deploy Hosting
+        if: steps.changes.outputs.hosting == 'true'
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-sa-key.json
         run: npx firebase-tools deploy --only hosting --project finance-96f46
 
       - name: Deploy Functions
+        if: steps.changes.outputs.functions == 'true'
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-sa-key.json
         run: npx firebase-tools deploy --only functions:uploadReceiptsV2,functions:uploadBankBookV2,functions:downloadFileV2 --project finance-96f46 --force
 
       - name: Deploy Firestore Indexes
+        if: steps.changes.outputs.indexes == 'true'
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-sa-key.json
         run: npx firebase-tools deploy --only firestore:indexes --project finance-96f46

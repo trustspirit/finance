@@ -256,6 +256,7 @@
     "select": "프로젝트 선택",
     "directorThreshold": "위원장 승인 기준 금액",
     "directorThresholdHint": "이 금액을 초과하는 신청은 위원장 또는 관리자만 승인할 수 있습니다.",
+    "general": "일반",
     "members": "멤버",
     "setDefault": "기본 프로젝트 설정",
     "isDefault": "기본 프로젝트",
