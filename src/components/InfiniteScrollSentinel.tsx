@@ -37,7 +37,7 @@ export default function InfiniteScrollSentinel({
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, [rootRef?.current]);
+  }, [rootRef]);
 
   if (!hasNextPage) return null;
 
