@@ -103,6 +103,7 @@ export interface Settlement {
   totalAmount: number
   receipts: Receipt[]
   requestIds: string[]
+  requestedBySignature: string | null
   approvedBy: { uid: string; name: string; email: string } | null
   approvalSignature: string | null
 }

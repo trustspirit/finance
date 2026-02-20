@@ -101,6 +101,7 @@ export async function exportSettlementPdf(settlement: Settlement, documentNo = '
   <div style="margin-top:30px; display:flex; justify-content:space-between; align-items:flex-end;">
     <div style="flex:1;">
       <p style="font-size:10px; color:#666; margin-bottom:4px;">Requested by</p>
+      ${settlement.requestedBySignature ? `<img src="${settlement.requestedBySignature}" alt="requester signature" style="max-height:50px;" />` : ''}
       <div style="border-top:1px solid #ccc; width:200px; margin-top:4px; padding-top:2px; font-size:10px;">${escapeHtml(settlement.payee)}</div>
     </div>
     <div style="flex:1; text-align:center;">

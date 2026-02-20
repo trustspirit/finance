@@ -2,11 +2,12 @@ import { useTranslation } from 'react-i18next'
 
 interface Props {
   payeeName: string
+  requesterSignature?: string | null
   signatureData?: string | null
   approverName?: string | null
 }
 
-export default function SignatureBlock({ payeeName, signatureData, approverName }: Props) {
+export default function SignatureBlock({ payeeName, requesterSignature, signatureData, approverName }: Props) {
   const { t } = useTranslation()
 
   return (
@@ -14,6 +15,9 @@ export default function SignatureBlock({ payeeName, signatureData, approverName 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <div>
           <p className="text-xs text-gray-500 mb-1">Requested by</p>
+          {requesterSignature && (
+            <img src={requesterSignature} alt="Requester signature" className="max-h-16 mb-1" />
+          )}
           <div className="border-t border-gray-300 pt-1 text-sm">{payeeName}</div>
         </div>
         <div>

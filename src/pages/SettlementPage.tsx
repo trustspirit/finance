@@ -1,9 +1,11 @@
 import { useMemo, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
+import { doc, getDoc } from 'firebase/firestore'
+import { db } from '../lib/firebase'
 import { useAuth } from '../contexts/AuthContext'
 import { useProject } from '../contexts/ProjectContext'
-import { PaymentRequest } from '../types'
+import { PaymentRequest, AppUser } from '../types'
 import { canApproveCommittee } from '../lib/roles'
 import { useApprovedRequests } from '../hooks/queries/useRequests'
 import { useCreateSettlement } from '../hooks/queries/useSettlements'
@@ -96,6 +98,21 @@ export default function SettlementPage() {
         return
       }
 
+      // Fetch requester signatures for each group
+      const requesterUids = [...new Set(Object.values(groupedByPayee).map(reqs => reqs[0].requestedBy.uid))]
+      const signatureMap = new Map<string, string | null>()
+      await Promise.all(
+        requesterUids.map(async (uid) => {
+          try {
+            const snap = await getDoc(doc(db, 'users', uid))
+            const userData = snap.exists() ? (snap.data() as AppUser) : null
+            signatureMap.set(uid, userData?.signature || null)
+          } catch {
+            signatureMap.set(uid, null)
+          }
+        })
+      )
+
       const settlementData = Object.values(groupedByPayee).map((reqs) => {
         const first = reqs[0]
         const allItems = reqs.flatMap((r) => r.items)
@@ -115,6 +132,7 @@ export default function SettlementPage() {
           totalAmount,
           receipts: allReceipts,
           requestIds: reqs.map((r) => r.id),
+          requestedBySignature: signatureMap.get(first.requestedBy.uid) || null,
           approvedBy: first.approvedBy,
           approvalSignature: first.approvalSignature || null,
         }

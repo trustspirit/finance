@@ -83,6 +83,7 @@ export default function SettlementReportPage() {
 
         <SignatureBlock
           payeeName={settlement.payee}
+          requesterSignature={settlement.requestedBySignature}
           signatureData={settlement.approvalSignature}
           approverName={settlement.approvedBy?.name}
         />
