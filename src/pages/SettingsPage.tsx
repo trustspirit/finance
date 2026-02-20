@@ -154,7 +154,7 @@ function ProjectManagement() {
   const [newDesc, setNewDesc] = useState('')
   const [creating, setCreating] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [editData, setEditData] = useState({ name: '', description: '', documentNo: '', directorApprovalThreshold: 600000 })
+  const [editData, setEditData] = useState({ name: '', description: '', documentNo: '', directorApprovalThreshold: 600000, budgetWarningThreshold: 85 })
   const [savingEdit, setSavingEdit] = useState(false)
 
   const createProject = useCreateProject()
@@ -179,6 +179,7 @@ function ProjectManagement() {
           budgetConfig: { totalBudget: 0, byCode: {} },
           documentNo: '',
           directorApprovalThreshold: 600000,
+          budgetWarningThreshold: 85,
           memberUids: [appUser.uid],
           isActive: true,
         } as unknown as Omit<Project, 'id'>,
@@ -208,6 +209,7 @@ function ProjectManagement() {
       description: p.description || '',
       documentNo: p.documentNo || '',
       directorApprovalThreshold: p.directorApprovalThreshold ?? 600000,
+      budgetWarningThreshold: p.budgetWarningThreshold ?? 85,
     })
   }
 
@@ -222,6 +224,7 @@ function ProjectManagement() {
           description: editData.description,
           documentNo: editData.documentNo,
           directorApprovalThreshold: editData.directorApprovalThreshold,
+          budgetWarningThreshold: editData.budgetWarningThreshold,
         },
       })
       setEditingId(null)
@@ -297,6 +300,16 @@ function ProjectManagement() {
                     className="w-full border border-gray-300 rounded px-3 py-2 text-sm" step="10000" min="0" />
                 </div>
                 <p className="text-xs text-gray-400 mt-1">{t('project.directorThresholdHint')}</p>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">{t('budget.warningThreshold')}</label>
+                <div className="flex items-center gap-2">
+                  <input type="number" value={editData.budgetWarningThreshold}
+                    onChange={(e) => setEditData({ ...editData, budgetWarningThreshold: Math.min(100, Math.max(0, Number(e.target.value) || 0)) })}
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm" step="5" min="0" max="100" />
+                  <span className="text-sm text-gray-500">%</span>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">{t('budget.warningThresholdHint')}</p>
               </div>
               {/* Members */}
               <div>

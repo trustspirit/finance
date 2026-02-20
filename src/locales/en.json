@@ -202,7 +202,9 @@
     "count": "Count",
     "amount": "Total",
     "approvedAmount": "Approved",
-    "allocatedBudget": "Allocated"
+    "allocatedBudget": "Allocated",
+    "settledCount": "Settled {{count}}",
+    "unsettledCount": "Unsettled {{count}}"
   },
   "users": {
     "title": "User Management",
@@ -256,6 +258,13 @@
     "memberCount": "{{count}} members",
     "personalSettings": "Personal Settings",
     "projectSettings": "Project Settings"
+  },
+  "budget": {
+    "warning": "{{percent}}% of the budget has been used. (Warning threshold: {{threshold}}%)",
+    "exceeded": "Budget exceeded! Currently at {{percent}}% usage.",
+    "warningThreshold": "Budget Warning Threshold (%)",
+    "warningThresholdHint": "A warning will be shown when budget usage exceeds this percentage.",
+    "proceedAnyway": "Proceed anyway"
   },
   "budgetCode": {
     "select": "Select budget code",

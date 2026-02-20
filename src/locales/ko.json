@@ -202,7 +202,9 @@
     "count": "건수",
     "amount": "총액",
     "approvedAmount": "승인액",
-    "allocatedBudget": "배정 예산"
+    "allocatedBudget": "배정 예산",
+    "settledCount": "정산 완료 {{count}}건",
+    "unsettledCount": "미정산 {{count}}건"
   },
   "users": {
     "title": "사용자 관리",
@@ -256,6 +258,13 @@
     "memberCount": "{{count}}명",
     "personalSettings": "내 설정",
     "projectSettings": "프로젝트 설정"
+  },
+  "budget": {
+    "warning": "예산의 {{percent}}%를 사용했습니다. (경고 기준: {{threshold}}%)",
+    "exceeded": "예산을 초과했습니다! 현재 {{percent}}% 사용 중입니다.",
+    "warningThreshold": "예산 경고 기준 (%)",
+    "warningThresholdHint": "예산 사용률이 이 비율을 초과하면 경고가 표시됩니다.",
+    "proceedAnyway": "그래도 진행"
   },
   "budgetCode": {
     "select": "예산 코드 선택",

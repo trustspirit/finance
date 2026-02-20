@@ -17,9 +17,13 @@ interface Stats {
   total: number
   pending: number
   approved: number
+  approvedOnly: number
+  settled: number
   rejected: number
   totalAmount: number
   approvedAmount: number
+  approvedOnlyAmount: number
+  settledAmount: number
   pendingAmount: number
   byCommittee: Record<string, { count: number; amount: number; approvedAmount: number }>
   byBudgetCode: Record<number, { count: number; amount: number; approvedAmount: number }>
@@ -46,10 +50,14 @@ export default function DashboardPage() {
 
     const total = requests.length
     const pending = requests.filter((r) => r.status === 'pending').length
-    const approved = requests.filter((r) => r.status === 'approved').length
+    const approvedOnly = requests.filter((r) => r.status === 'approved').length
+    const settled = requests.filter((r) => r.status === 'settled').length
+    const approved = approvedOnly + settled
     const rejected = requests.filter((r) => r.status === 'rejected').length
     const totalAmount = requests.reduce((sum, r) => sum + r.totalAmount, 0)
-    const approvedAmount = requests.filter((r) => r.status === 'approved' || r.status === 'settled').reduce((sum, r) => sum + r.totalAmount, 0)
+    const approvedOnlyAmount = requests.filter((r) => r.status === 'approved').reduce((sum, r) => sum + r.totalAmount, 0)
+    const settledAmount = requests.filter((r) => r.status === 'settled').reduce((sum, r) => sum + r.totalAmount, 0)
+    const approvedAmount = approvedOnlyAmount + settledAmount
     const pendingAmount = requests.filter((r) => r.status === 'pending').reduce((sum, r) => sum + r.totalAmount, 0)
     const byCommittee: Stats['byCommittee'] = {}
     const byBudgetCode: Stats['byBudgetCode'] = {}
@@ -69,7 +77,7 @@ export default function DashboardPage() {
       })
     })
 
-    return { total, pending, approved, rejected, totalAmount, approvedAmount, pendingAmount, byCommittee, byBudgetCode }
+    return { total, pending, approved, approvedOnly, settled, rejected, totalAmount, approvedAmount, approvedOnlyAmount, settledAmount, pendingAmount, byCommittee, byBudgetCode }
   }, [requests])
 
   // Initialize budget and documentNo from currentProject
@@ -125,6 +133,8 @@ export default function DashboardPage() {
 
   const remainingBudget = budget.totalBudget - stats.approvedAmount
   const usagePercent = budget.totalBudget > 0 ? Math.round((stats.approvedAmount / budget.totalBudget) * 100) : 0
+  const warningThreshold = currentProject?.budgetWarningThreshold ?? 85
+  const showBudgetWarning = budget.totalBudget > 0 && usagePercent >= warningThreshold
 
   return (
     <Layout>
@@ -134,13 +144,19 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <StatCard label={t('dashboard.totalRequests')} value={t('form.itemCount', { count: stats.total })} />
         <StatCard label={t('dashboard.pendingRequests')} value={`${t('form.itemCount', { count: stats.pending })} (₩${stats.pendingAmount.toLocaleString()})`} color="yellow" />
-        <StatCard label={t('dashboard.approvedRequests')} value={`${t('form.itemCount', { count: stats.approved })} (₩${stats.approvedAmount.toLocaleString()})`} color="green" />
+        <div className="rounded-lg shadow border p-4 bg-green-50 border-green-200">
+          <p className="text-xs text-gray-500 mb-1">{t('dashboard.approvedRequests')}</p>
+          <p className="text-lg font-bold">{t('form.itemCount', { count: stats.approved })} (₩{stats.approvedAmount.toLocaleString()})</p>
+          <div className="mt-2 pt-2 border-t border-green-200 space-y-0.5">
+            <p className="text-xs text-gray-500">{t('dashboard.settledCount', { count: stats.settled })} ₩{stats.settledAmount.toLocaleString()}</p>
+            <p className="text-xs text-gray-500">{t('dashboard.unsettledCount', { count: stats.approvedOnly })} ₩{stats.approvedOnlyAmount.toLocaleString()}</p>
+          </div>
+        </div>
         <StatCard label={t('dashboard.rejectedRequests')} value={t('form.itemCount', { count: stats.rejected })} color="red" />
       </div>
 
       {/* Budget Overview */}
-      {budget.totalBudget > 0 && (
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
+      <div className="bg-white rounded-lg shadow p-6 mb-6">
           <h3 className="text-sm font-medium text-gray-700 mb-3">{t('dashboard.budgetOverview')}</h3>
           <div className="flex flex-wrap items-end gap-6 mb-4">
             <div>
@@ -198,6 +214,13 @@ export default function DashboardPage() {
               </div>
             )
           })()}
+      </div>
+
+      {showBudgetWarning && (
+        <div className={`rounded-lg p-4 mb-6 text-sm ${usagePercent >= 100 ? 'bg-red-50 border border-red-300 text-red-700' : 'bg-orange-50 border border-orange-300 text-orange-700'}`}>
+          {usagePercent >= 100
+            ? t('budget.exceeded', { percent: usagePercent })
+            : t('budget.warning', { percent: usagePercent, threshold: warningThreshold })}
         </div>
       )}
 
@@ -330,7 +353,7 @@ export default function DashboardPage() {
                 placeholder="0" />
             ) : (
               <p className="text-sm font-medium">
-                {budget.totalBudget > 0 ? `₩${budget.totalBudget.toLocaleString()}` : t('dashboard.notSet')}
+                ₩{budget.totalBudget.toLocaleString()}
               </p>
             )}
           </div>

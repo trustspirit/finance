@@ -14,6 +14,7 @@ export interface Project {
   budgetConfig: ProjectBudgetConfig
   documentNo: string
   directorApprovalThreshold: number
+  budgetWarningThreshold: number
   memberUids: string[]
   isActive: boolean
 }
