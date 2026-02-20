@@ -262,7 +262,8 @@
     "isDefault": "Default Project",
     "memberCount": "{{count}} members",
     "personalSettings": "Personal Settings",
-    "projectSettings": "Project Settings"
+    "projectSettings": "Project Settings",
+    "deleteConfirm": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone."
   },
   "budget": {
     "warning": "{{percent}}% of the budget has been used. (Warning threshold: {{threshold}}%)",

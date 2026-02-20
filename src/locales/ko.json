@@ -262,7 +262,8 @@
     "isDefault": "기본 프로젝트",
     "memberCount": "{{count}}명",
     "personalSettings": "내 설정",
-    "projectSettings": "프로젝트 설정"
+    "projectSettings": "프로젝트 설정",
+    "deleteConfirm": "\"{{name}}\" 프로젝트를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."
   },
   "budget": {
     "warning": "예산의 {{percent}}%를 사용했습니다. (경고 기준: {{threshold}}%)",

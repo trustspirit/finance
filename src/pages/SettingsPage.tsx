@@ -7,17 +7,24 @@ import PersonalSettings from '../components/settings/PersonalSettings'
 import ProjectGeneralSettings from '../components/settings/ProjectGeneralSettings'
 import MemberManagement from '../components/settings/MemberManagement'
 import ProjectCreateForm from '../components/settings/ProjectCreateForm'
+import { useGlobalSettings, useUpdateGlobalSettings } from '../hooks/queries/useSettings'
+import { useUpdateProject } from '../hooks/queries/useProjects'
 
 function ProjectManagement() {
   const { t } = useTranslation()
   const { projects } = useProject()
   const activeProjects = projects.filter(p => p.isActive)
+  const { data: globalSettings } = useGlobalSettings()
+  const updateSettings = useUpdateGlobalSettings()
+  const updateProject = useUpdateProject()
+  const defaultProjectId = globalSettings?.defaultProjectId || ''
 
   const [selectedId, setSelectedId] = useState(activeProjects[0]?.id || '')
   const [creating, setCreating] = useState(false)
   const [subTab, setSubTab] = useState<'general' | 'members'>('general')
 
   const selectedProject = activeProjects.find(p => p.id === selectedId)
+  const isDefault = selectedId === defaultProjectId
 
   const handleSelect = (value: string) => {
     if (value === '__create__') {
@@ -51,6 +58,37 @@ function ProjectManagement() {
         <ProjectCreateForm onCreated={handleCreated} onCancel={() => setCreating(false)} />
       ) : selectedProject ? (
         <>
+          {/* Project actions */}
+          <div className="flex items-center justify-between">
+            <div>
+              {isDefault ? (
+                <span className="inline-flex items-center gap-1 text-xs bg-green-100 text-green-700 px-2.5 py-1 rounded-full">
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                  {t('project.isDefault')}
+                </span>
+              ) : (
+                <button
+                  onClick={() => updateSettings.mutateAsync({ defaultProjectId: selectedId })}
+                  className="inline-flex items-center gap-1 text-xs border border-gray-300 text-gray-600 px-2.5 py-1 rounded-full hover:bg-gray-50 transition-colors"
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>
+                  {t('project.setDefault')}
+                </button>
+              )}
+            </div>
+            {!isDefault && (
+              <button
+                onClick={async () => {
+                  if (!confirm(t('project.deleteConfirm', { name: selectedProject.name }))) return
+                  await updateProject.mutateAsync({ projectId: selectedId, data: { isActive: false } })
+                }}
+                className="text-xs text-red-500 hover:text-red-700 transition-colors"
+              >
+                {t('common.delete')}
+              </button>
+            )}
+          </div>
+
           {/* Sub-tabs */}
           <div className="flex gap-1">
             {([
