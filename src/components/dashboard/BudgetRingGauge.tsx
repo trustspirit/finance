@@ -206,18 +206,26 @@ function BudgetTimeChart({
     const dates = Object.keys(byDate).sort();
     if (dates.length === 0) return [];
 
+    const result: { date: string; label: string; used: number; combined: number }[] = [];
+
+    // Start point at origin
+    const firstDate = dates[0];
+    result.push({ date: firstDate, label: "0", used: 0, combined: 0 });
+
     let cumUsed = 0;
     let cumPending = 0;
-    return dates.map((date) => {
+    dates.forEach((date) => {
       cumUsed += byDate[date].used;
       cumPending += byDate[date].pending;
-      return {
+      result.push({
         date,
         label: date.slice(5), // MM-DD
         used: cumUsed,
         combined: cumUsed + cumPending,
-      };
+      });
     });
+
+    return result;
   }, [requests]);
 
   if (chartData.length === 0) {
@@ -246,6 +254,7 @@ function BudgetTimeChart({
           <XAxis dataKey="label" tick={{ fontSize: 11 }} />
           <YAxis
             domain={[0, Math.ceil(totalBudget * 1.15)]}
+            ticks={[0, Math.round(totalBudget / 2), totalBudget]}
             tick={{ fontSize: 11 }}
             tickFormatter={formatAxis}
             axisLine={false}
