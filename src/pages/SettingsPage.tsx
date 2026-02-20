@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../hooks/queries/queryKeys'
@@ -12,7 +12,8 @@ import Layout from '../components/Layout'
 import SignaturePad from '../components/SignaturePad'
 import CommitteeSelect from '../components/CommitteeSelect'
 import { useUploadBankBook } from '../hooks/queries/useCloudFunctions'
-import { useUsers } from '../hooks/queries/useUsers'
+import { useInfiniteUsers } from '../hooks/queries/useUsers'
+import InfiniteScrollSentinel from '../components/InfiniteScrollSentinel'
 import { useGlobalSettings, useUpdateGlobalSettings } from '../hooks/queries/useSettings'
 import { useCreateProject, useUpdateProject, useUpdateProjectMembers } from '../hooks/queries/useProjects'
 
@@ -140,7 +141,15 @@ function ProjectManagement() {
   const { t } = useTranslation()
   const { appUser } = useAuth()
   const { projects } = useProject()
-  const { data: users = [], isLoading: usersLoading } = useUsers()
+  const {
+    data: usersData,
+    isLoading: usersLoading,
+    hasNextPage: usersHasNextPage,
+    isFetchingNextPage: usersIsFetchingNextPage,
+    fetchNextPage: usersFetchNextPage,
+  } = useInfiniteUsers()
+  const users = usersData?.pages.flatMap(p => p.items) ?? []
+  const membersContainerRef = useRef<HTMLDivElement>(null)
   const { data: globalSettings } = useGlobalSettings()
   const defaultProjectId = globalSettings?.defaultProjectId || ''
   const queryClient = useQueryClient()
@@ -314,7 +323,7 @@ function ProjectManagement() {
               {/* Members */}
               <div>
                 <label className="block text-xs text-gray-500 mb-1">{t('project.members')}</label>
-                <div className="max-h-40 overflow-y-auto space-y-1">
+                <div ref={membersContainerRef} className="max-h-40 overflow-y-auto space-y-1">
                   {users.map(u => (
                     <label key={u.uid} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 px-2 py-1 rounded">
                       <input type="checkbox" checked={(p.memberUids || []).includes(u.uid)}
@@ -323,6 +332,12 @@ function ProjectManagement() {
                       <span className="text-xs text-gray-400">{u.email}</span>
                     </label>
                   ))}
+                  <InfiniteScrollSentinel
+                    hasNextPage={usersHasNextPage}
+                    isFetchingNextPage={usersIsFetchingNextPage}
+                    fetchNextPage={usersFetchNextPage}
+                    rootRef={membersContainerRef}
+                  />
                 </div>
               </div>
               <div className="flex gap-2">

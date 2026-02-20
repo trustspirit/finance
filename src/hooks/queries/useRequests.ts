@@ -1,11 +1,14 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   collection, getDocs, getDoc, doc, addDoc, updateDoc,
   query, where, orderBy, serverTimestamp, runTransaction,
+  limit, startAfter, QueryDocumentSnapshot, DocumentData, QueryConstraint,
 } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
 import { queryKeys } from './queryKeys'
-import type { PaymentRequest } from '../../types'
+import type { PaymentRequest, RequestStatus } from '../../types'
+
+const PAGE_SIZE = 20
 
 export function useRequests(projectId: string | undefined) {
   return useQuery({
@@ -53,6 +56,58 @@ export function useApprovedRequests(projectId: string | undefined) {
       return snap.docs.map(d => ({ id: d.id, ...d.data() } as PaymentRequest))
     },
     enabled: !!projectId,
+  })
+}
+
+export function useInfiniteRequests(projectId: string | undefined, status?: RequestStatus) {
+  const queryKey = status
+    ? queryKeys.requests.infiniteByStatus(projectId!, status)
+    : queryKeys.requests.infinite(projectId!)
+
+  return useInfiniteQuery({
+    queryKey,
+    queryFn: async ({ pageParam }) => {
+      const constraints: QueryConstraint[] = [
+        where('projectId', '==', projectId),
+        ...(status ? [where('status', '==', status)] : []),
+        orderBy('createdAt', 'desc'),
+      ]
+      if (pageParam) constraints.push(startAfter(pageParam))
+      constraints.push(limit(PAGE_SIZE))
+
+      const q = query(collection(db, 'requests'), ...constraints)
+      const snap = await getDocs(q)
+      const items = snap.docs.map(d => ({ id: d.id, ...d.data() } as PaymentRequest))
+      return { items, lastDoc: snap.docs[snap.docs.length - 1] ?? null }
+    },
+    initialPageParam: null as QueryDocumentSnapshot<DocumentData> | null,
+    getNextPageParam: (lastPage) =>
+      lastPage.items.length < PAGE_SIZE ? undefined : lastPage.lastDoc,
+    enabled: !!projectId,
+  })
+}
+
+export function useInfiniteMyRequests(projectId: string | undefined, uid: string | undefined) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.requests.infiniteByUser(projectId!, uid!),
+    queryFn: async ({ pageParam }) => {
+      const constraints: QueryConstraint[] = [
+        where('projectId', '==', projectId),
+        where('requestedBy.uid', '==', uid),
+        orderBy('createdAt', 'desc'),
+      ]
+      if (pageParam) constraints.push(startAfter(pageParam))
+      constraints.push(limit(PAGE_SIZE))
+
+      const q = query(collection(db, 'requests'), ...constraints)
+      const snap = await getDocs(q)
+      const items = snap.docs.map(d => ({ id: d.id, ...d.data() } as PaymentRequest))
+      return { items, lastDoc: snap.docs[snap.docs.length - 1] ?? null }
+    },
+    initialPageParam: null as QueryDocumentSnapshot<DocumentData> | null,
+    getNextPageParam: (lastPage) =>
+      lastPage.items.length < PAGE_SIZE ? undefined : lastPage.lastDoc,
+    enabled: !!projectId && !!uid,
   })
 }
 

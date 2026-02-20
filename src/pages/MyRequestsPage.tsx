@@ -2,20 +2,30 @@ import { useTranslation } from 'react-i18next'
 import { useProject } from '../contexts/ProjectContext'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { useMyRequests, useCancelRequest } from '../hooks/queries/useRequests'
+import { useInfiniteMyRequests, useCancelRequest } from '../hooks/queries/useRequests'
 
 import Layout from '../components/Layout'
 import StatusBadge from '../components/StatusBadge'
 import Spinner from '../components/Spinner'
 import EmptyState from '../components/EmptyState'
 import PageHeader from '../components/PageHeader'
+import InfiniteScrollSentinel from '../components/InfiniteScrollSentinel'
 
 export default function MyRequestsPage() {
   const { t } = useTranslation()
   const { user } = useAuth()
   const { currentProject } = useProject()
-  const { data: requests = [], isLoading: loading, error } = useMyRequests(currentProject?.id, user?.uid)
+  const {
+    data,
+    isLoading: loading,
+    error,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useInfiniteMyRequests(currentProject?.id, user?.uid)
   const cancelMutation = useCancelRequest()
+
+  const requests = data?.pages.flatMap(p => p.items) ?? []
 
   const handleCancel = (e: React.MouseEvent, requestId: string) => {
     e.preventDefault()
@@ -118,6 +128,12 @@ export default function MyRequestsPage() {
               </Link>
             ))}
           </div>
+
+          <InfiniteScrollSentinel
+            hasNextPage={hasNextPage}
+            isFetchingNextPage={isFetchingNextPage}
+            fetchNextPage={fetchNextPage}
+          />
         </>
       )}
     </Layout>

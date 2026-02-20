@@ -11,10 +11,11 @@ import SignaturePad from '../components/SignaturePad'
 import Spinner from '../components/Spinner'
 import PageHeader from '../components/PageHeader'
 import Modal from '../components/Modal'
+import InfiniteScrollSentinel from '../components/InfiniteScrollSentinel'
 import { useTranslation } from 'react-i18next'
 import { canApproveCommittee, canApproveRequest, DEFAULT_APPROVAL_THRESHOLD } from '../lib/roles'
 
-import { useRequests, useApproveRequest, useRejectRequest } from '../hooks/queries/useRequests'
+import { useInfiniteRequests, useApproveRequest, useRejectRequest } from '../hooks/queries/useRequests'
 import { useUser } from '../hooks/queries/useUsers'
 
 export default function AdminRequestsPage() {
@@ -22,21 +23,34 @@ export default function AdminRequestsPage() {
   const { user, appUser } = useAuth()
   const { currentProject } = useProject()
   const role = appUser?.role || 'user'
-  const { data: requests = [], isLoading: loading } = useRequests(currentProject?.id)
+  const [filter, setFilter] = useState<RequestStatus | 'all'>('all')
+
+  const firestoreStatus = filter === 'all' ? undefined : filter
+  const {
+    data,
+    isLoading: loading,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useInfiniteRequests(currentProject?.id, firestoreStatus)
+
   const approveMutation = useApproveRequest()
   const rejectMutation = useRejectRequest()
-  const [filter, setFilter] = useState<RequestStatus | 'all'>('all')
   const [signModalRequestId, setSignModalRequestId] = useState<string | null>(null)
   const [signatureData, setSignatureData] = useState(appUser?.signature || '')
   const [rejectModalRequestId, setRejectModalRequestId] = useState<string | null>(null)
   const [rejectionReason, setRejectionReason] = useState('')
 
+  const allRequests = data?.pages.flatMap(p => p.items) ?? []
+
   // Fetch the requester's user data for bank book preview in approval modal
-  const signModalRequest = requests.find((r) => r.id === signModalRequestId)
+  const signModalRequest = allRequests.find((r) => r.id === signModalRequestId)
   const { data: requester } = useUser(signModalRequest?.requestedBy.uid)
 
+  const threshold = currentProject?.directorApprovalThreshold ?? DEFAULT_APPROVAL_THRESHOLD
+
   const handleApproveWithSign = (requestId: string) => {
-    const req = requests.find((r) => r.id === requestId)
+    const req = allRequests.find((r) => r.id === requestId)
     if (!req) return
     if (req.requestedBy.uid === user?.uid) {
       alert(t('approval.selfApproveError'))
@@ -75,7 +89,7 @@ export default function AdminRequestsPage() {
   }
 
   const handleRejectOpen = (requestId: string) => {
-    const req = requests.find((r) => r.id === requestId)
+    const req = allRequests.find((r) => r.id === requestId)
     if (!req) return
     if (req.requestedBy.uid === user?.uid) {
       alert(t('approval.selfRejectError'))
@@ -113,13 +127,12 @@ export default function AdminRequestsPage() {
     })
   }
 
-  const threshold = currentProject?.directorApprovalThreshold ?? DEFAULT_APPROVAL_THRESHOLD
-
   const budgetUsage = useBudgetUsage()
 
-  // Filter by committee access, exclude cancelled, then by status
-  const accessible = requests.filter((r) => canApproveCommittee(role, r.committee) && r.status !== 'cancelled')
-  const filtered = filter === 'all' ? accessible : accessible.filter((r) => r.status === filter)
+  // Filter by committee access, exclude cancelled (for 'all' tab), then by status
+  const accessible = filter === 'all'
+    ? allRequests.filter((r) => canApproveCommittee(role, r.committee) && r.status !== 'cancelled')
+    : allRequests.filter((r) => canApproveCommittee(role, r.committee))
 
   const bankBookUrl = requester?.bankBookUrl || requester?.bankBookDriveUrl
   const bankBookImg = bankBookUrl
@@ -157,7 +170,7 @@ export default function AdminRequestsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y">
-                    {filtered.map((req) => (
+                    {accessible.map((req) => (
                       <tr key={req.id} className="hover:bg-gray-50">
                         <td className="px-4 py-3">
                           <Link to={`/request/${req.id}`} className="text-blue-600 hover:underline">{req.date}</Link>
@@ -195,7 +208,7 @@ export default function AdminRequestsPage() {
 
           {/* Mobile card view */}
           <div className="sm:hidden space-y-3">
-            {filtered.map((req) => (
+            {accessible.map((req) => (
               <Link key={req.id} to={`/request/${req.id}`} className="block bg-white rounded-lg shadow p-4">
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-medium text-gray-900">{req.payee}</span>
@@ -223,6 +236,12 @@ export default function AdminRequestsPage() {
               </Link>
             ))}
           </div>
+
+          <InfiniteScrollSentinel
+            hasNextPage={hasNextPage}
+            isFetchingNextPage={isFetchingNextPage}
+            fetchNextPage={fetchNextPage}
+          />
         </>
       )}
 

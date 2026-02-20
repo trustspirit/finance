@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../contexts/AuthContext'
-import { useUsers, useUpdateUserRole } from '../hooks/queries/useUsers'
+import { useInfiniteUsers, useUpdateUserRole } from '../hooks/queries/useUsers'
 import { AppUser, UserRole } from '../types'
 import Layout from '../components/Layout'
 import Spinner from '../components/Spinner'
 import PageHeader from '../components/PageHeader'
 import EmptyState from '../components/EmptyState'
+import InfiniteScrollSentinel from '../components/InfiniteScrollSentinel'
 
 function BankInfoTooltip({ user, onClose }: { user: AppUser; onClose: () => void }) {
   const { t } = useTranslation()
@@ -101,9 +102,18 @@ function UserNameWithTooltip({ user, currentUser, isAdmin, roleLabel }: {
 export default function AdminUsersPage() {
   const { t } = useTranslation()
   const { appUser: currentUser } = useAuth()
-  const { data: users = [], isLoading: loading, error } = useUsers()
+  const {
+    data,
+    isLoading: loading,
+    error,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useInfiniteUsers()
   const updateRole = useUpdateUserRole()
   const [successUid, setSuccessUid] = useState<string | null>(null)
+
+  const users = data?.pages.flatMap(p => p.items) ?? []
 
   const isAdmin = currentUser?.role === 'admin'
 
@@ -182,7 +192,7 @@ export default function AdminUsersPage() {
                             value={u.role}
                             disabled={u.uid === currentUser?.uid}
                             onChange={(e) => handleRoleChange(u.uid, e.target.value as UserRole)}
-                            className={`border border-gray-300 rounded px-2 py-1 text-sm ${
+                            className={`border border-gray-300 rounded pl-2 pr-8 py-1 text-sm ${
                               u.uid === currentUser?.uid ? 'bg-gray-100 text-gray-400' : ''
                             }`}
                           >
@@ -227,7 +237,7 @@ export default function AdminUsersPage() {
                       value={u.role}
                       disabled={u.uid === currentUser?.uid}
                       onChange={(e) => handleRoleChange(u.uid, e.target.value as UserRole)}
-                      className={`w-full border border-gray-300 rounded px-2 py-1.5 text-sm ${
+                      className={`w-full border border-gray-300 rounded pl-2 pr-8 py-1.5 text-sm ${
                         u.uid === currentUser?.uid ? 'bg-gray-100 text-gray-400' : ''
                       }`}
                     >
@@ -248,6 +258,12 @@ export default function AdminUsersPage() {
               </div>
             ))}
           </div>
+
+          <InfiniteScrollSentinel
+            hasNextPage={hasNextPage}
+            isFetchingNextPage={isFetchingNextPage}
+            fetchNextPage={fetchNextPage}
+          />
         </>
       )}
     </Layout>

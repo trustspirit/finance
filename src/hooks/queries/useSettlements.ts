@@ -1,11 +1,14 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   collection, getDocs, getDoc, doc,
   query, where, orderBy, writeBatch, serverTimestamp,
+  limit, startAfter, QueryDocumentSnapshot, DocumentData, QueryConstraint,
 } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
 import { queryKeys } from './queryKeys'
 import type { Settlement } from '../../types'
+
+const PAGE_SIZE = 20
 
 export function useSettlements(projectId: string | undefined) {
   return useQuery({
@@ -19,6 +22,29 @@ export function useSettlements(projectId: string | undefined) {
       const snap = await getDocs(q)
       return snap.docs.map(d => ({ id: d.id, ...d.data() } as Settlement))
     },
+    enabled: !!projectId,
+  })
+}
+
+export function useInfiniteSettlements(projectId: string | undefined) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.settlements.infinite(projectId!),
+    queryFn: async ({ pageParam }) => {
+      const constraints: QueryConstraint[] = [
+        where('projectId', '==', projectId),
+        orderBy('createdAt', 'desc'),
+      ]
+      if (pageParam) constraints.push(startAfter(pageParam))
+      constraints.push(limit(PAGE_SIZE))
+
+      const q = query(collection(db, 'settlements'), ...constraints)
+      const snap = await getDocs(q)
+      const items = snap.docs.map(d => ({ id: d.id, ...d.data() } as Settlement))
+      return { items, lastDoc: snap.docs[snap.docs.length - 1] ?? null }
+    },
+    initialPageParam: null as QueryDocumentSnapshot<DocumentData> | null,
+    getNextPageParam: (lastPage) =>
+      lastPage.items.length < PAGE_SIZE ? undefined : lastPage.lastDoc,
     enabled: !!projectId,
   })
 }

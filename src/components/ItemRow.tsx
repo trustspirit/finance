@@ -29,7 +29,7 @@ export default function ItemRow({ index, item, onChange, onRemove, canRemove }: 
           const code = parseInt(e.target.value)
           onChange(index, { ...item, budgetCode: isNaN(code) ? 0 : code })
         }}
-        className="w-64 border border-gray-300 rounded px-3 py-2 text-sm"
+        className="w-64 border border-gray-300 rounded pl-3 pr-8 py-2 text-sm"
       >
         <option value="">{t('budgetCode.select')}</option>
         {BUDGET_CODES.map((bc, i) => (

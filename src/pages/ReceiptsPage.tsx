@@ -4,12 +4,13 @@ import { useTranslation } from 'react-i18next'
 import { httpsCallable } from 'firebase/functions'
 import { functions } from '../lib/firebase'
 import { useProject } from '../contexts/ProjectContext'
-import { useRequests } from '../hooks/queries/useRequests'
+import { useInfiniteRequests } from '../hooks/queries/useRequests'
 import { Committee, Receipt } from '../types'
 import Layout from '../components/Layout'
 import Spinner from '../components/Spinner'
 import PageHeader from '../components/PageHeader'
 import EmptyState from '../components/EmptyState'
+import InfiniteScrollSentinel from '../components/InfiniteScrollSentinel'
 import JSZip from 'jszip'
 
 interface ReceiptRow {
@@ -39,10 +40,18 @@ function PdfIcon({ className }: { className?: string }) {
 export default function ReceiptsPage() {
   const { t } = useTranslation()
   const { currentProject } = useProject()
-  const { data: requests = [], isLoading: loading } = useRequests(currentProject?.id)
+  const {
+    data,
+    isLoading: loading,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useInfiniteRequests(currentProject?.id)
   const [committeeFilter, setCommitteeFilter] = useState<Committee | 'all'>('all')
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [downloading, setDownloading] = useState(false)
+
+  const requests = data?.pages.flatMap(p => p.items) ?? []
 
   const rows: ReceiptRow[] = useMemo(() => {
     const result: ReceiptRow[] = []
@@ -312,6 +321,12 @@ export default function ReceiptsPage() {
               )
             })}
           </div>
+
+          <InfiniteScrollSentinel
+            hasNextPage={hasNextPage}
+            isFetchingNextPage={isFetchingNextPage}
+            fetchNextPage={fetchNextPage}
+          />
         </>
       )}
     </Layout>

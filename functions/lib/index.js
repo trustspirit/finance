@@ -83,6 +83,19 @@ exports.uploadBankBook = functions.https.onCall(async (data, context) => {
     if (!file) {
         throw new functions.https.HttpsError('invalid-argument', 'No file provided');
     }
+    // Delete old bank book file if exists
+    const userDoc = await admin.firestore().doc(`users/${context.auth.uid}`).get();
+    if (userDoc.exists) {
+        const oldPath = userDoc.data()?.bankBookPath;
+        if (oldPath) {
+            try {
+                await bucket.file(oldPath).delete();
+            }
+            catch {
+                // Ignore if file already deleted
+            }
+        }
+    }
     const storagePath = `bankbook/${context.auth.uid}/${Date.now()}_${file.name}`;
     return await uploadFileToStorage(file, storagePath);
 });

@@ -1,18 +1,27 @@
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
 import { useProject } from '../contexts/ProjectContext'
-import { useSettlements } from '../hooks/queries/useSettlements'
+import { useInfiniteSettlements } from '../hooks/queries/useSettlements'
 import { formatFirestoreDate } from '../lib/utils'
 import { Settlement } from '../types'
 import Layout from '../components/Layout'
 import Spinner from '../components/Spinner'
 import EmptyState from '../components/EmptyState'
 import PageHeader from '../components/PageHeader'
+import InfiniteScrollSentinel from '../components/InfiniteScrollSentinel'
 
 export default function SettlementListPage() {
   const { t } = useTranslation()
   const { currentProject } = useProject()
-  const { data: settlements = [], isLoading: loading } = useSettlements(currentProject?.id)
+  const {
+    data,
+    isLoading: loading,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
+  } = useInfiniteSettlements(currentProject?.id)
+
+  const settlements = data?.pages.flatMap(p => p.items) ?? []
 
   const formatDate = (s: Settlement) => formatFirestoreDate(s.createdAt)
 
@@ -88,6 +97,12 @@ export default function SettlementListPage() {
               </Link>
             ))}
           </div>
+
+          <InfiniteScrollSentinel
+            hasNextPage={hasNextPage}
+            isFetchingNextPage={isFetchingNextPage}
+            fetchNextPage={fetchNextPage}
+          />
         </>
       )}
     </Layout>
