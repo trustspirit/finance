@@ -1,5 +1,15 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+} from "recharts";
 
 interface Props {
   totalBudget: number;
@@ -12,8 +22,8 @@ export default function BudgetRingGauge({
   approvedAmount,
   pendingAmount,
 }: Props) {
-  const { t } = useTranslation();
-  const [view, setView] = useState<"bar" | "gauge">("bar");
+  const { t, i18n } = useTranslation();
+  const [view, setView] = useState<"bar" | "chart">("bar");
 
   const remaining = Math.max(0, totalBudget - approvedAmount - pendingAmount);
   const usagePercent =
@@ -84,6 +94,11 @@ export default function BudgetRingGauge({
     </div>
   );
 
+  const formatAxis = (v: number) =>
+    v >= 10000
+      ? `${(v / 10000).toFixed(0)}${i18n.language === "ko" ? "\uB9CC" : "k"}`
+      : v.toLocaleString();
+
   return (
     <div className="bg-white rounded-lg shadow p-6">
       <div className="flex items-center justify-between mb-5">
@@ -91,12 +106,14 @@ export default function BudgetRingGauge({
           {t("dashboard.budgetOverview")}
         </h3>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-gray-500">{t("dashboard.totalBudget")} <span className="font-bold text-gray-900">{"\u20A9"}{totalBudget.toLocaleString()}</span></span>
+          <span className="text-xs text-gray-500">
+            {t("dashboard.totalBudget")}{" "}
+            <span className="font-bold text-gray-900">{"\u20A9"}{totalBudget.toLocaleString()}</span>
+          </span>
           <div className="flex border border-gray-200 rounded overflow-hidden">
             <button
               onClick={() => setView("bar")}
-              className={`px-2 py-1 text-xs ${view === "bar" ? "bg-gray-100 text-gray-900" : "text-gray-400 hover:text-gray-600"}`}
-              title="Bar"
+              className={`px-2 py-1 ${view === "bar" ? "bg-gray-100 text-gray-900" : "text-gray-400 hover:text-gray-600"}`}
             >
               <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
                 <rect x="1" y="8" width="4" height="7" rx="0.5" />
@@ -105,13 +122,11 @@ export default function BudgetRingGauge({
               </svg>
             </button>
             <button
-              onClick={() => setView("gauge")}
-              className={`px-2 py-1 text-xs ${view === "gauge" ? "bg-gray-100 text-gray-900" : "text-gray-400 hover:text-gray-600"}`}
-              title="Gauge"
+              onClick={() => setView("chart")}
+              className={`px-2 py-1 ${view === "chart" ? "bg-gray-100 text-gray-900" : "text-gray-400 hover:text-gray-600"}`}
             >
               <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
                 <path d="M2 12L5 6L9 8L14 2" />
-                <path d="M2 12L5 6L9 8L14 2" strokeOpacity="0.2" fill="currentColor" />
               </svg>
             </button>
           </div>
@@ -145,96 +160,75 @@ export default function BudgetRingGauge({
           {breakdown}
         </>
       ) : (
-        <GaugeView
-          totalBudget={totalBudget}
-          approvedAmount={approvedAmount}
-          pendingAmount={pendingAmount}
-          breakdown={breakdown}
-        />
+        <>
+          <div className="h-[200px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart
+                data={[
+                  { x: "", total: totalBudget, combined: approvedAmount + pendingAmount, used: approvedAmount },
+                  { x: " ", total: totalBudget, combined: approvedAmount + pendingAmount, used: approvedAmount },
+                ]}
+                margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
+              >
+                <defs>
+                  <linearGradient id="budgetUsed" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#3B82F6" stopOpacity={0.05} />
+                  </linearGradient>
+                  <linearGradient id="budgetPending" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#EAB308" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#EAB308" stopOpacity={0.05} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" vertical={false} />
+                <XAxis dataKey="x" tick={false} axisLine={false} />
+                <YAxis
+                  domain={[0, Math.ceil(totalBudget * 1.1)]}
+                  tick={{ fontSize: 11 }}
+                  tickFormatter={formatAxis}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip
+                  formatter={(v: number | undefined) => `\u20A9${(v ?? 0).toLocaleString()}`}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="combined"
+                  name={t("dashboard.used") + " + " + t("dashboard.pendingAmount")}
+                  stroke="#EAB308"
+                  strokeWidth={2}
+                  fill="url(#budgetPending)"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="used"
+                  name={t("dashboard.used")}
+                  stroke="#3B82F6"
+                  strokeWidth={2}
+                  fill="url(#budgetUsed)"
+                />
+                <ReferenceLine
+                  y={totalBudget}
+                  stroke="#9CA3AF"
+                  strokeWidth={2}
+                  strokeDasharray="6 3"
+                  label={{
+                    value: `${t("dashboard.totalBudget")} \u20A9${totalBudget.toLocaleString()}`,
+                    position: "insideTopLeft",
+                    fontSize: 11,
+                    fill: "#6B7280",
+                    offset: 8,
+                  }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="mt-3">
+            {breakdown}
+          </div>
+        </>
       )}
-    </div>
-  );
-}
-
-function GaugeView({
-  totalBudget,
-  approvedAmount,
-  pendingAmount,
-  breakdown,
-}: {
-  totalBudget: number;
-  approvedAmount: number;
-  pendingAmount: number;
-  breakdown: React.ReactNode;
-}) {
-  const { t } = useTranslation();
-  const h = 180;
-  const usedH = totalBudget > 0 ? (approvedAmount / totalBudget) * h : 0;
-  const pendH = totalBudget > 0 ? (pendingAmount / totalBudget) * h : 0;
-  const usedY = h - usedH;
-  const pendY = h - usedH - pendH;
-
-  const fmt = (v: number) => `\u20A9${v.toLocaleString()}`;
-
-  return (
-    <div className="flex gap-6 items-center">
-      <div className="shrink-0">
-        <svg width="200" height={h + 20} viewBox={`0 0 200 ${h + 20}`}>
-          {/* Background */}
-          <rect x="60" y="10" width="40" height={h} rx="4" fill="#F3F4F6" />
-
-          {/* Pending area */}
-          {pendH > 0 && (
-            <rect x="60" y={pendY + 10} width="40" height={pendH} fill="#FDE68A" />
-          )}
-
-          {/* Used area */}
-          {usedH > 0 && (
-            <rect x="60" y={usedY + 10} width="40" height={usedH} rx={usedY + usedH >= h ? 4 : 0} fill="#3B82F6" />
-          )}
-
-          {/* Top round corners */}
-          <rect x="60" y="10" width="40" height="8" rx="4" fill="#F3F4F6" />
-          {pendH > 0 && pendY + 10 <= 14 && (
-            <rect x="60" y="10" width="40" height="8" rx="4" fill="#FDE68A" />
-          )}
-
-          {/* Total budget line */}
-          <line x1="50" y1="10" x2="108" y2="10" stroke="#9CA3AF" strokeWidth="1" strokeDasharray="3 2" />
-          <text x="112" y="14" fontSize="10" fill="#6B7280">{fmt(totalBudget)}</text>
-
-          {/* Used line */}
-          {usedH > 0 && usedY > 4 && (
-            <>
-              <line x1="50" y1={usedY + 10} x2="108" y2={usedY + 10} stroke="#3B82F6" strokeWidth="1" strokeDasharray="3 2" />
-              <text x="112" y={usedY + 14} fontSize="10" fill="#3B82F6">
-                {t("dashboard.used")}
-              </text>
-            </>
-          )}
-
-          {/* Pending line */}
-          {pendH > 0 && pendY > 4 && Math.abs(pendY - usedY) > 16 && (
-            <>
-              <line x1="50" y1={pendY + 10} x2="108" y2={pendY + 10} stroke="#EAB308" strokeWidth="1" strokeDasharray="3 2" />
-              <text x="112" y={pendY + 14} fontSize="10" fill="#EAB308">
-                {t("dashboard.pendingAmount")}
-              </text>
-            </>
-          )}
-
-          {/* Zero line */}
-          <line x1="50" y1={h + 10} x2="108" y2={h + 10} stroke="#D1D5DB" strokeWidth="1" />
-          <text x="112" y={h + 14} fontSize="10" fill="#9CA3AF">0</text>
-
-          {/* Left labels */}
-          <text x="46" y={h + 14} fontSize="10" fill="#9CA3AF" textAnchor="end">0%</text>
-          <text x="46" y="14" fontSize="10" fill="#9CA3AF" textAnchor="end">100%</text>
-        </svg>
-      </div>
-      <div className="flex-1">
-        {breakdown}
-      </div>
     </div>
   );
 }
