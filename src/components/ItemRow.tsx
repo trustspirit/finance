@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { RequestItem } from '../types'
 import { BUDGET_CODES } from '../constants/budgetCodes'
+import Select from './Select'
 
 interface Props {
   index: number
@@ -23,13 +24,13 @@ export default function ItemRow({ index, item, onChange, onRemove, canRemove }: 
         onChange={(e) => onChange(index, { ...item, description: e.target.value })}
         className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm"
       />
-      <select
+      <Select
         value={item.budgetCode || ''}
         onChange={(e) => {
           const code = parseInt(e.target.value)
           onChange(index, { ...item, budgetCode: isNaN(code) ? 0 : code })
         }}
-        className="w-64 border border-gray-300 rounded pl-3 pr-8 py-2 text-sm"
+        selectClassName="w-64"
       >
         <option value="">{t('budgetCode.select')}</option>
         {BUDGET_CODES.map((bc, i) => (
@@ -37,7 +38,7 @@ export default function ItemRow({ index, item, onChange, onRemove, canRemove }: 
             {bc.code} - {t(`budgetCode.items.${bc.descKey}`)}
           </option>
         ))}
-      </select>
+      </Select>
       <input
         type="number"
         placeholder={t('field.totalAmount')}

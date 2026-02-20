@@ -7,6 +7,7 @@ import { useProject } from "../contexts/ProjectContext";
 import { useInfiniteRequests } from "../hooks/queries/useRequests";
 import { Committee, Receipt } from "../types";
 import Layout from "../components/Layout";
+import { DownloadIcon } from "../components/Icons";
 import Spinner from "../components/Spinner";
 import PageHeader from "../components/PageHeader";
 import EmptyState from "../components/EmptyState";
@@ -245,19 +246,7 @@ export default function ReceiptsPage() {
             disabled={downloading}
             className="ml-auto px-4 py-1.5 bg-purple-600 text-white rounded text-sm font-medium hover:bg-purple-700 disabled:bg-gray-400 flex items-center gap-1.5"
           >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-              />
-            </svg>
+            <DownloadIcon className="w-4 h-4" />
             {downloading
               ? t("receipts.downloading")
               : selected.size === 1

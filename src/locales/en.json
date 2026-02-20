@@ -263,7 +263,10 @@
     "memberCount": "{{count}} members",
     "personalSettings": "Personal Settings",
     "projectSettings": "Project Settings",
-    "deleteConfirm": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone."
+    "deleteConfirm": "Are you sure you want to delete \"{{name}}\"? You can restore it within 30 days.",
+    "recentlyDeleted": "Recently Deleted",
+    "restore": "Restore",
+    "autoDeleteDays": "Auto-delete in {{days}} days"
   },
   "budget": {
     "warning": "{{percent}}% of the budget has been used. (Warning threshold: {{threshold}}%)",

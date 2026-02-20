@@ -3,12 +3,22 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../contexts/AuthContext'
 import { useProject } from '../contexts/ProjectContext'
 import Layout from '../components/Layout'
+import { CheckIcon, StarIcon, TrashIcon, RestoreIcon } from '../components/Icons'
+import Select from '../components/Select'
 import PersonalSettings from '../components/settings/PersonalSettings'
 import ProjectGeneralSettings from '../components/settings/ProjectGeneralSettings'
 import MemberManagement from '../components/settings/MemberManagement'
 import ProjectCreateForm from '../components/settings/ProjectCreateForm'
 import { useGlobalSettings, useUpdateGlobalSettings } from '../hooks/queries/useSettings'
-import { useUpdateProject } from '../hooks/queries/useProjects'
+import { useSoftDeleteProject, useDeletedProjects, useRestoreProject } from '../hooks/queries/useProjects'
+
+function getRemainingDays(deletedAt: unknown): number {
+  if (!deletedAt) return 0
+  const ts = deletedAt as { seconds?: number; toDate?: () => Date }
+  const deletedDate = ts.toDate ? ts.toDate() : new Date((ts.seconds || 0) * 1000)
+  const elapsed = Date.now() - deletedDate.getTime()
+  return Math.max(0, 30 - Math.floor(elapsed / (1000 * 60 * 60 * 24)))
+}
 
 function ProjectManagement() {
   const { t } = useTranslation()
@@ -16,15 +26,19 @@ function ProjectManagement() {
   const activeProjects = projects.filter(p => p.isActive)
   const { data: globalSettings } = useGlobalSettings()
   const updateSettings = useUpdateGlobalSettings()
-  const updateProject = useUpdateProject()
+  const softDelete = useSoftDeleteProject()
+  const { data: deletedProjects = [] } = useDeletedProjects()
+  const restoreProject = useRestoreProject()
   const defaultProjectId = globalSettings?.defaultProjectId || ''
 
-  const [selectedId, setSelectedId] = useState(activeProjects[0]?.id || '')
+  const [selectedId, setSelectedId] = useState('')
   const [creating, setCreating] = useState(false)
   const [subTab, setSubTab] = useState<'general' | 'members'>('general')
 
-  const selectedProject = activeProjects.find(p => p.id === selectedId)
-  const isDefault = selectedId === defaultProjectId
+  // Fallback to first project if selectedId is invalid or empty
+  const selectedProject = activeProjects.find(p => p.id === selectedId) || activeProjects[0]
+  const effectiveId = selectedProject?.id || ''
+  const isDefault = effectiveId === defaultProjectId
 
   const handleSelect = (value: string) => {
     if (value === '__create__') {
@@ -40,19 +54,31 @@ function ProjectManagement() {
     setCreating(false)
   }
 
+  const handleDelete = async () => {
+    if (!selectedProject) return
+    if (!confirm(t('project.deleteConfirm', { name: selectedProject.name }))) return
+    await softDelete.mutateAsync(effectiveId)
+    setSelectedId('')  // fallback logic handles the rest
+  }
+
+  const handleRestore = async (projectId: string) => {
+    await restoreProject.mutateAsync(projectId)
+    setSelectedId(projectId)
+  }
+
   return (
     <div className="space-y-4">
       {/* Project Selector */}
-      <select
-        value={creating ? '__create__' : selectedId}
+      <Select
+        value={creating ? '__create__' : effectiveId}
         onChange={(e) => handleSelect(e.target.value)}
-        className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+        selectClassName="w-full"
       >
         {activeProjects.map(p => (
           <option key={p.id} value={p.id}>{p.name}</option>
         ))}
         <option value="__create__">+ {t('project.create')}</option>
-      </select>
+      </Select>
 
       {creating ? (
         <ProjectCreateForm onCreated={handleCreated} onCancel={() => setCreating(false)} />
@@ -63,27 +89,24 @@ function ProjectManagement() {
             <div>
               {isDefault ? (
                 <span className="inline-flex items-center gap-1 text-xs bg-green-100 text-green-700 px-2.5 py-1 rounded-full">
-                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+                  <CheckIcon className="w-3 h-3" />
                   {t('project.isDefault')}
                 </span>
               ) : (
                 <button
-                  onClick={() => updateSettings.mutateAsync({ defaultProjectId: selectedId })}
+                  onClick={() => updateSettings.mutateAsync({ defaultProjectId: effectiveId })}
                   className="inline-flex items-center gap-1 text-xs border border-gray-300 text-gray-600 px-2.5 py-1 rounded-full hover:bg-gray-50 transition-colors"
                 >
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>
+                  <StarIcon className="w-3 h-3" />
                   {t('project.setDefault')}
                 </button>
               )}
             </div>
             {!isDefault && (
-              <button
-                onClick={async () => {
-                  if (!confirm(t('project.deleteConfirm', { name: selectedProject.name }))) return
-                  await updateProject.mutateAsync({ projectId: selectedId, data: { isActive: false } })
-                }}
-                className="text-xs text-red-500 hover:text-red-700 transition-colors"
+              <button onClick={handleDelete}
+                className="inline-flex items-center gap-1 text-xs text-red-500 hover:text-red-700 transition-colors"
               >
+                <TrashIcon className="w-3.5 h-3.5" />
                 {t('common.delete')}
               </button>
             )}
@@ -109,6 +132,31 @@ function ProjectManagement() {
           )}
         </>
       ) : null}
+
+      {/* Deleted Projects */}
+      {deletedProjects.length > 0 && (
+        <div className="pt-4 border-t border-gray-200">
+          <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">{t('project.recentlyDeleted')}</p>
+          <div className="space-y-2">
+            {deletedProjects.map(p => {
+              const remaining = getRemainingDays(p.deletedAt)
+              return (
+                <div key={p.id} className="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="text-sm text-gray-500 line-through">{p.name}</p>
+                    <p className="text-xs text-gray-400">{t('project.autoDeleteDays', { days: remaining })}</p>
+                  </div>
+                  <button onClick={() => handleRestore(p.id)}
+                    className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 transition-colors">
+                    <RestoreIcon className="w-3.5 h-3.5" />
+                    {t('project.restore')}
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

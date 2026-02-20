@@ -14,6 +14,7 @@ import {
   RejectionModal,
 } from "../components/AdminRequestModals";
 import { useTranslation } from "react-i18next";
+import Select from "../components/Select";
 import {
   canApproveCommittee,
   canApproveRequest,
@@ -320,7 +321,7 @@ export default function AdminRequestsPage() {
           {/* Mobile: sort selector + card view */}
           <div className="sm:hidden">
             <div className="flex items-center gap-2 mb-3">
-              <select
+              <Select
                 value={`${sortKey}-${sortDir}`}
                 onChange={(e) => {
                   const [k, d] = e.target.value.split("-") as [
@@ -330,7 +331,7 @@ export default function AdminRequestsPage() {
                   setSortKey(k);
                   setSortDir(d);
                 }}
-                className="border border-gray-300 rounded pl-2 pr-8 py-1.5 text-xs text-gray-600"
+                selectClassName="text-xs text-gray-600"
               >
                 <option value="date-desc">{t("field.date")} ↓</option>
                 <option value="date-asc">{t("field.date")} ↑</option>
@@ -344,7 +345,7 @@ export default function AdminRequestsPage() {
                 </option>
                 <option value="status-asc">{t("status.label")} ↑</option>
                 <option value="status-desc">{t("status.label")} ↓</option>
-              </select>
+              </Select>
             </div>
 
             <div className={`space-y-3 transition-opacity ${isFetching && !isFetchingNextPage ? "opacity-40" : ""}`}>

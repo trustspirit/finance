@@ -11,6 +11,7 @@ export const queryKeys = {
   projects: {
     root: () => ['projects'] as const,
     all: (uid: string) => ['projects', uid] as const,
+    deleted: () => ['projects', 'deleted'] as const,
   },
   settlements: {
     all: (projectId: string) => ['settlements', projectId] as const,

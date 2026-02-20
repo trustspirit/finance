@@ -8,6 +8,7 @@ import Spinner from '../components/Spinner'
 import PageHeader from '../components/PageHeader'
 import EmptyState from '../components/EmptyState'
 import InfiniteScrollSentinel from '../components/InfiniteScrollSentinel'
+import Select from '../components/Select'
 
 function BankInfoTooltip({ user, onClose }: { user: AppUser; onClose: () => void }) {
   const { t } = useTranslation()
@@ -188,13 +189,10 @@ export default function AdminUsersPage() {
                       <td className="px-4 py-3 text-gray-500">{u.phone || '-'}</td>
                       {isAdmin && (
                         <td className="px-4 py-3 text-center">
-                          <select
+                          <Select
                             value={u.role}
                             disabled={u.uid === currentUser?.uid}
                             onChange={(e) => handleRoleChange(u.uid, e.target.value as UserRole)}
-                            className={`border border-gray-300 rounded pl-2 pr-8 py-1 text-sm ${
-                              u.uid === currentUser?.uid ? 'bg-gray-100 text-gray-400' : ''
-                            }`}
                           >
                             <option value="user">{t('role.user')}</option>
                             <option value="approver_ops">{t('role.approver_ops')}</option>
@@ -202,7 +200,7 @@ export default function AdminUsersPage() {
                             <option value="finance">{t('role.finance')}</option>
                             <option value="director">{t('role.director')}</option>
                             <option value="admin">{t('role.admin')}</option>
-                          </select>
+                          </Select>
                           {successUid === u.uid && (
                             <p className="text-xs text-green-600 mt-1">{t('users.roleChanged')}</p>
                           )}
@@ -233,13 +231,11 @@ export default function AdminUsersPage() {
                 </div>
                 {isAdmin ? (
                   <div>
-                    <select
+                    <Select
                       value={u.role}
                       disabled={u.uid === currentUser?.uid}
                       onChange={(e) => handleRoleChange(u.uid, e.target.value as UserRole)}
-                      className={`w-full border border-gray-300 rounded pl-2 pr-8 py-1.5 text-sm ${
-                        u.uid === currentUser?.uid ? 'bg-gray-100 text-gray-400' : ''
-                      }`}
+                      selectClassName="w-full"
                     >
                       <option value="user">{t('role.user')}</option>
                       <option value="approver_ops">{t('role.approver_ops')}</option>
@@ -247,7 +243,7 @@ export default function AdminUsersPage() {
                       <option value="finance">{t('role.finance')}</option>
                       <option value="director">{t('role.director')}</option>
                       <option value="admin">{t('role.admin')}</option>
-                    </select>
+                    </Select>
                     {successUid === u.uid && (
                       <p className="text-xs text-green-600 mt-1">{t('users.roleChanged')}</p>
                     )}

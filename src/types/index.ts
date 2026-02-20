@@ -17,6 +17,7 @@ export interface Project {
   budgetWarningThreshold?: number
   memberUids: string[]
   isActive: boolean
+  deletedAt?: Date | null
 }
 
 export interface GlobalSettings {

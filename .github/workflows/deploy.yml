@@ -83,7 +83,7 @@ jobs:
         if: steps.changes.outputs.functions == 'true'
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/gcp-sa-key.json
-        run: npx firebase-tools deploy --only functions:uploadReceiptsV2,functions:uploadBankBookV2,functions:downloadFileV2 --project finance-96f46 --force
+        run: npx firebase-tools deploy --only functions:uploadReceiptsV2,functions:uploadBankBookV2,functions:downloadFileV2,functions:cleanupDeletedProjects --project finance-96f46 --force
 
       - name: Deploy Firestore Indexes
         if: steps.changes.outputs.indexes == 'true'

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { collection, getDocs, doc, getDoc, setDoc, query, where, writeBatch } from 'firebase/firestore'
+import { collection, getDocs, doc, getDoc, setDoc, query, where, writeBatch, serverTimestamp, deleteField } from 'firebase/firestore'
 import { db } from '../../lib/firebase'
 import { queryKeys } from './queryKeys'
 import type { AppUser, Project, GlobalSettings } from '../../types'
@@ -70,6 +70,51 @@ export function useUpdateProject() {
       data: Partial<Project>
     }) => {
       await setDoc(doc(db, 'projects', params.projectId), params.data, { merge: true })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects.root() })
+    },
+  })
+}
+
+export function useDeletedProjects() {
+  return useQuery({
+    queryKey: queryKeys.projects.deleted(),
+    queryFn: async () => {
+      const q = query(collection(db, 'projects'), where('isActive', '==', false))
+      const snap = await getDocs(q)
+      return snap.docs
+        .map(d => ({ id: d.id, ...d.data() } as Project))
+        .filter(p => p.deletedAt)
+    },
+  })
+}
+
+export function useSoftDeleteProject() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (projectId: string) => {
+      await setDoc(doc(db, 'projects', projectId), {
+        isActive: false,
+        deletedAt: serverTimestamp(),
+      }, { merge: true })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.projects.root() })
+    },
+  })
+}
+
+export function useRestoreProject() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (projectId: string) => {
+      await setDoc(doc(db, 'projects', projectId), {
+        isActive: true,
+        deletedAt: deleteField(),
+      }, { merge: true })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.projects.root() })

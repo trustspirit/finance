@@ -33,8 +33,9 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.downloadFileV2 = exports.uploadBankBookV2 = exports.uploadReceiptsV2 = void 0;
+exports.cleanupDeletedProjects = exports.downloadFileV2 = exports.uploadBankBookV2 = exports.uploadReceiptsV2 = void 0;
 const https_1 = require("firebase-functions/v2/https");
+const scheduler_1 = require("firebase-functions/v2/scheduler");
 const admin = __importStar(require("firebase-admin"));
 admin.initializeApp();
 const STORAGE_BUCKET = 'finance-96f46.firebasestorage.app';
@@ -120,5 +121,56 @@ exports.downloadFileV2 = (0, https_1.onCall)(async (request) => {
         contentType: metadata.contentType || 'application/octet-stream',
         fileName: storagePath.split('/').pop() || 'file',
     };
+});
+// 30일 지난 삭제된 프로젝트 자동 정리 (매일 실행)
+exports.cleanupDeletedProjects = (0, scheduler_1.onSchedule)('every 24 hours', async () => {
+    const db = admin.firestore();
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const snapshot = await db
+        .collection('projects')
+        .where('isActive', '==', false)
+        .where('deletedAt', '<=', thirtyDaysAgo)
+        .get();
+    for (const projectDoc of snapshot.docs) {
+        const projectId = projectDoc.id;
+        console.log(`Permanently deleting project: ${projectId}`);
+        // Collect all storage paths to delete
+        const storagePaths = [];
+        // Delete requests + collect receipt paths
+        const requests = await db.collection('requests').where('projectId', '==', projectId).get();
+        for (const reqDoc of requests.docs) {
+            for (const receipt of reqDoc.data().receipts || []) {
+                if (receipt.storagePath)
+                    storagePaths.push(receipt.storagePath);
+            }
+        }
+        for (let i = 0; i < requests.docs.length; i += 500) {
+            const batch = db.batch();
+            requests.docs.slice(i, i + 500).forEach(d => batch.delete(d.ref));
+            await batch.commit();
+        }
+        // Delete settlements + collect receipt paths
+        const settlements = await db.collection('settlements').where('projectId', '==', projectId).get();
+        for (const setDoc of settlements.docs) {
+            for (const receipt of setDoc.data().receipts || []) {
+                if (receipt.storagePath)
+                    storagePaths.push(receipt.storagePath);
+            }
+        }
+        for (let i = 0; i < settlements.docs.length; i += 500) {
+            const batch = db.batch();
+            settlements.docs.slice(i, i + 500).forEach(d => batch.delete(d.ref));
+            await batch.commit();
+        }
+        // Delete all collected storage files
+        await Promise.all(storagePaths.map(p => bucket.file(p).delete().catch(() => { })));
+        // Delete entire receipts folder for this project (catch any orphaned files)
+        const [orphanedFiles] = await bucket.getFiles({ prefix: `receipts/${projectId}/` });
+        await Promise.all(orphanedFiles.map(f => f.delete().catch(() => { })));
+        // Delete the project document
+        await projectDoc.ref.delete();
+        console.log(`Deleted project ${projectId}: ${requests.size} requests, ${settlements.size} settlements, ${storagePaths.length + orphanedFiles.length} files`);
+    }
 });
 //# sourceMappingURL=index.js.map
