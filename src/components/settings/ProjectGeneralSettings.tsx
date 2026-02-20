@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Project } from '../../types'
 import { useUpdateProject } from '../../hooks/queries/useProjects'
@@ -13,16 +13,6 @@ export default function ProjectGeneralSettings({ project }: { project: Project }
   const [warningPct, setWarningPct] = useState(project.budgetWarningThreshold ?? 85)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-
-  // Reset form when project changes
-  useEffect(() => {
-    setName(project.name || '')
-    setDescription(project.description || '')
-    setDocumentNo(project.documentNo || '')
-    setThreshold(project.directorApprovalThreshold ?? 600000)
-    setWarningPct(project.budgetWarningThreshold ?? 85)
-    setSaved(false)
-  }, [project.id])
 
   const updateProject = useUpdateProject()
 

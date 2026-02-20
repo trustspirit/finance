@@ -126,7 +126,7 @@ function ProjectManagement() {
           </div>
 
           {subTab === 'general' ? (
-            <ProjectGeneralSettings project={selectedProject} />
+            <ProjectGeneralSettings key={effectiveId} project={selectedProject} />
           ) : (
             <MemberManagement project={selectedProject} />
           )}
