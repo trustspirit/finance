@@ -204,7 +204,11 @@
     "approvedAmount": "Approved",
     "allocatedBudget": "Allocated",
     "settledCount": "Settled {{count}}",
-    "unsettledCount": "Unsettled {{count}}"
+    "unsettledCount": "Unsettled {{count}}",
+    "statusDistribution": "Request Status",
+    "monthlyTrend": "Monthly Trend",
+    "requestCount": "Requests",
+    "requestAmount": "Amount"
   },
   "users": {
     "title": "User Management",

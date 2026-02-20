@@ -204,7 +204,11 @@
     "approvedAmount": "승인액",
     "allocatedBudget": "배정 예산",
     "settledCount": "정산 완료 {{count}}건",
-    "unsettledCount": "미정산 {{count}}건"
+    "unsettledCount": "미정산 {{count}}건",
+    "statusDistribution": "신청 상태 분포",
+    "monthlyTrend": "월별 신청 추이",
+    "requestCount": "신청 건수",
+    "requestAmount": "신청 금액"
   },
   "users": {
     "title": "사용자 관리",
