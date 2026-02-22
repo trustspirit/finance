@@ -125,11 +125,12 @@ export default function MonthlyTrendChart({ requests }: Props) {
               yAxisId="right"
               orientation="right"
               tick={{ fontSize: 12 }}
-              tickFormatter={(v: number) =>
-                v >= 10000
-                  ? `${(v / 10000).toFixed(0)}${i18n.language === "ko" ? "\uB9CC" : "k"}`
-                  : v.toLocaleString()
-              }
+              tickFormatter={(v: number) => {
+                const isKo = i18n.language === "ko";
+                if (v >= 100000000) return `${(v / 100000000).toFixed(v % 100000000 === 0 ? 0 : 1)}${isKo ? "억" : "B"}`;
+                if (v >= 10000) return `${(v / 10000).toFixed(0)}${isKo ? "만" : "k"}`;
+                return v.toLocaleString();
+              }}
             />
             <Tooltip
               formatter={(value: number | undefined, name?: string) => {

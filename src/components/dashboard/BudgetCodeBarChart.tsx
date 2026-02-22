@@ -49,10 +49,12 @@ export default function BudgetCodeBarChart({
     );
   }
 
-  const formatAxis = (v: number) =>
-    v >= 10000
-      ? `${(v / 10000).toFixed(0)}${i18n.language === "ko" ? "\uB9CC" : "k"}`
-      : v.toLocaleString();
+  const formatAxis = (v: number) => {
+    const isKo = i18n.language === "ko";
+    if (v >= 100000000) return `${(v / 100000000).toFixed(v % 100000000 === 0 ? 0 : 1)}${isKo ? "억" : "B"}`;
+    if (v >= 10000) return `${(v / 10000).toFixed(0)}${isKo ? "만" : "k"}`;
+    return v.toLocaleString();
+  };
 
   return (
     <div className="h-[250px]">

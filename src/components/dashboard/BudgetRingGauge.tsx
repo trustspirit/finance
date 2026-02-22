@@ -96,10 +96,12 @@ export default function BudgetRingGauge({
     </div>
   );
 
-  const formatAxis = (v: number) =>
-    v >= 10000
-      ? `${(v / 10000).toFixed(0)}${i18n.language === "ko" ? "\uB9CC" : "k"}`
-      : v.toLocaleString();
+  const formatAxis = (v: number) => {
+    const isKo = i18n.language === "ko";
+    if (v >= 100000000) return `${(v / 100000000).toFixed(v % 100000000 === 0 ? 0 : 1)}${isKo ? "억" : "B"}`;
+    if (v >= 10000) return `${(v / 10000).toFixed(0)}${isKo ? "만" : "k"}`;
+    return v.toLocaleString();
+  };
 
   return (
     <div className="bg-white rounded-lg shadow p-6">
@@ -167,6 +169,7 @@ export default function BudgetRingGauge({
             totalBudget={totalBudget}
             requests={requests}
             formatAxis={formatAxis}
+            usagePercent={usagePercent}
           />
           <div className="mt-3">{breakdown}</div>
         </>
@@ -179,10 +182,12 @@ function BudgetTimeChart({
   totalBudget,
   requests,
   formatAxis,
+  usagePercent,
 }: {
   totalBudget: number;
   requests: { date: string; totalAmount: number; status: string }[];
   formatAxis: (v: number) => string;
+  usagePercent: number;
 }) {
   const { t } = useTranslation();
 
@@ -228,6 +233,10 @@ function BudgetTimeChart({
     return result;
   }, [requests]);
 
+  const lastPoint = chartData[chartData.length - 1];
+  const maxData = Math.max(lastPoint?.combined ?? 0, lastPoint?.used ?? 0);
+  const isZoomedIn = maxData > 0 && maxData < totalBudget * 0.2;
+
   if (chartData.length === 0) {
     return (
       <div className="flex items-center justify-center h-[200px] text-gray-400 text-sm">
@@ -237,7 +246,13 @@ function BudgetTimeChart({
   }
 
   return (
-    <div className="h-[200px]">
+    <div>
+      {isZoomedIn && (
+        <p className="text-xs text-gray-400 mb-1 text-right">
+          {t("dashboard.totalBudget")} {"\u20A9"}{totalBudget.toLocaleString()} ({t("dashboard.usage", { percent: usagePercent })})
+        </p>
+      )}
+      <div className="h-[200px]">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
           <defs>
@@ -253,12 +268,23 @@ function BudgetTimeChart({
           <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
           <XAxis dataKey="label" tick={{ fontSize: 11 }} />
           <YAxis
-            domain={[0, Math.ceil(totalBudget * 1.15)]}
+            domain={(() => {
+              const lastPoint = chartData[chartData.length - 1];
+              const maxData = Math.max(lastPoint?.combined ?? 0, lastPoint?.used ?? 0);
+              // If data is less than 20% of budget, zoom in to show detail
+              if (maxData > 0 && maxData < totalBudget * 0.2) {
+                return [0, Math.ceil(maxData * 3)];
+              }
+              return [0, Math.ceil(totalBudget * 1.15)];
+            })()}
             ticks={(() => {
               const lastPoint = chartData[chartData.length - 1];
               const used = lastPoint?.used ?? 0;
               const combined = lastPoint?.combined ?? 0;
-              const values = new Set([0, totalBudget]);
+              const maxData = Math.max(combined, used);
+              const values = new Set([0]);
+              // Only add totalBudget tick if it fits in the visible range
+              if (maxData >= totalBudget * 0.2) values.add(totalBudget);
               if (used > 0) values.add(used);
               if (combined > 0 && combined !== used) values.add(combined);
               return [...values].sort((a, b) => a - b);
@@ -304,21 +330,24 @@ function BudgetTimeChart({
             strokeWidth={2}
             fill="url(#budgetUsedFill)"
           />
-          <ReferenceLine
-            y={totalBudget}
-            stroke="#9CA3AF"
-            strokeWidth={1.5}
-            strokeDasharray="6 3"
-            label={{
-              value: t("dashboard.totalBudget"),
-              position: "insideTopLeft",
-              fontSize: 11,
-              fill: "#6B7280",
-              offset: 6,
-            }}
-          />
+          {!isZoomedIn && (
+            <ReferenceLine
+              y={totalBudget}
+              stroke="#9CA3AF"
+              strokeWidth={1.5}
+              strokeDasharray="6 3"
+              label={{
+                value: t("dashboard.totalBudget"),
+                position: "insideTopLeft",
+                fontSize: 11,
+                fill: "#6B7280",
+                offset: 6,
+              }}
+            />
+          )}
         </AreaChart>
       </ResponsiveContainer>
+    </div>
     </div>
   );
 }
