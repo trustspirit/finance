@@ -146,6 +146,7 @@
     "bankBookRequired": "통장사본이 등록되지 않았습니다. 설정에서 통장사본을 업로드해주세요.",
     "duplicateAmount": "₩{{amount}} 동일 금액의 신청서가 이미 있습니다 ({{date}}). 중복 신청이 아닌지 확인해주세요. 계속 진행하시겠습니까?",
     "noChanges": "원본 신청서에서 변경된 내용이 없습니다. 수정 후 재신청해주세요.",
+    "committeeRequired": "소속 위원회를 선택해주세요.",
     "displayNameRequired": "선호하는 이름을 입력해주세요.",
     "invalidFileType": "\"{{name}}\" - 허용되지 않는 형식 (PNG, JPG, PDF만 가능)",
     "fileTooLarge": "\"{{name}}\" - 2MB 초과 ({{size}}MB)"

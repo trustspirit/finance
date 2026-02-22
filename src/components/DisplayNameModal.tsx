@@ -17,7 +17,7 @@ export default function DisplayNameModal() {
   const [phone, setPhone] = useState(appUser?.phone || '')
   const [bankName, setBankName] = useState(appUser?.bankName || '')
   const [bankAccount, setBankAccount] = useState(appUser?.bankAccount || '')
-  const [committee, setCommittee] = useState<Committee>('operations')
+  const [committee, setCommittee] = useState<Committee | ''>('')
   const [bankBookFile, setBankBookFile] = useState<File | null>(null)
   const [bankBookError, setBankBookError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -36,6 +36,7 @@ export default function DisplayNameModal() {
     if (!phone.trim()) errs.push(t('validation.phoneRequired'))
     if (!bankName.trim()) errs.push(t('validation.bankRequired'))
     if (!bankAccount.trim()) errs.push(t('validation.bankAccountRequired'))
+    if (!committee) errs.push(t('validation.committeeRequired'))
     // bankBook is optional at initial setup - required at request submission
     return errs
   }
@@ -63,7 +64,7 @@ export default function DisplayNameModal() {
           phone: phone.trim(),
           bankName: bankName.trim(),
           bankAccount: bankAccount.trim(),
-          defaultCommittee: committee,
+          defaultCommittee: committee as Committee,
           bankBookImage: '',
           bankBookPath: storagePath,
           bankBookUrl: url,
@@ -74,7 +75,7 @@ export default function DisplayNameModal() {
           phone: phone.trim(),
           bankName: bankName.trim(),
           bankAccount: bankAccount.trim(),
-          defaultCommittee: committee,
+          defaultCommittee: committee as Committee,
         })
       }
       setNeedsDisplayName(false)

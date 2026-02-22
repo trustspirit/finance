@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { Committee } from '../types'
 
 interface Props {
-  value: Committee
+  value: Committee | ''
   onChange: (value: Committee) => void
   name?: string
   label?: string

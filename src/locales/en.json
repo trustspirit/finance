@@ -146,6 +146,7 @@
     "bankBookRequired": "Bank book copy is required. Please upload in settings.",
     "duplicateAmount": "A request with the same amount ₩{{amount}} already exists ({{date}}). This might be a duplicate. Continue anyway?",
     "noChanges": "No changes detected. Please modify at least one field.",
+    "committeeRequired": "Please select a committee.",
     "displayNameRequired": "Preferred name is required.",
     "invalidFileType": "\"{{name}}\" - Invalid format (PNG, JPG, PDF only)",
     "fileTooLarge": "\"{{name}}\" - Exceeds 2MB ({{size}}MB)"
