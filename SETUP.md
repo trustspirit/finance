@@ -272,10 +272,10 @@ finanace/
 │   │   ├── InfoGrid           # 정보 그리드 (반응형)
 │   │   ├── ItemRow            # 신청서 항목 행
 │   │   ├── ItemsTable         # 항목 테이블
-│   │   ├── Layout             # 네비게이션 레이아웃 (모바일 대응)
+│   │   ├── Layout             # 네비게이션 레이아웃 (UserMenu, 모바일 대응)
 │   │   ├── Modal              # 접근성 모달 (ESC, 포커스 트랩)
 │   │   ├── PageHeader         # 페이지 헤더
-│   │   ├── ProjectSelector    # 프로젝트 전환 드롭다운
+│   │   ├── ProjectSelector    # 프로젝트 전환/생성/복원 드롭다운
 │   │   ├── ProtectedRoute     # 인증/권한 라우트 가드
 │   │   ├── ReceiptGallery     # 영수증 이미지 갤러리
 │   │   ├── Select             # 공통 셀렉트 컴포넌트
@@ -325,7 +325,7 @@ finanace/
 │   ├── locales/             # 번역 파일
 │   │   ├── ko.json            # 한국어
 │   │   └── en.json            # 영어
-│   ├── pages/               # 페이지 컴포넌트 (13개, lazy-loaded)
+│   ├── pages/               # 페이지 컴포넌트 (14개, lazy-loaded)
 │   │   ├── LoginPage          # Google 로그인
 │   │   ├── RequestFormPage    # 신청서 작성 (draft 자동저장)
 │   │   ├── MyRequestsPage     # 내 신청 내역
@@ -338,7 +338,8 @@ finanace/
 │   │   ├── SettlementReportPage # 정산 리포트 (PDF 내보내기)
 │   │   ├── DashboardPage      # 대시보드 (예산 현황/차트/설정)
 │   │   ├── AdminUsersPage     # 사용자 관리
-│   │   └── SettingsPage       # 설정 (프로필/통장사본/서명/언어/프로젝트)
+│   │   ├── ProfilePage        # 내 설정 (개인 정보/통장사본/서명/언어)
+│   │   └── SettingsPage       # 프로젝트 설정 (Admin 전용)
 │   └── types/               # TypeScript 타입
 │       └── index.ts           # 역할, 위원회, 신청서, 정산, 프로젝트 타입 정의
 ├── functions/               # Cloud Functions (2nd Gen)
