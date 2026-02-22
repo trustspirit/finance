@@ -85,13 +85,22 @@ export default function AdminRequestsPage() {
     currentProject?.directorApprovalThreshold ?? DEFAULT_APPROVAL_THRESHOLD;
 
   const accessible = useMemo(() => {
-    return filter === "all"
+    const filtered = filter === "all"
       ? allRequests.filter(
           (r) =>
             canSeeCommitteeRequests(role, r.committee) && r.status !== "cancelled",
         )
       : allRequests.filter((r) => canSeeCommitteeRequests(role, r.committee));
-  }, [allRequests, filter, role]);
+    // Stable secondary sort by createdAt within same primary sort value
+    return filtered.slice().sort((a, b) => {
+      const aKey = String((a as unknown as Record<string, unknown>)[sortKey] ?? "");
+      const bKey = String((b as unknown as Record<string, unknown>)[sortKey] ?? "");
+      if (aKey !== bKey) return 0; // already sorted by Firestore
+      const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : 0;
+      const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : 0;
+      return sortDir === "desc" ? bTime - aTime : aTime - bTime;
+    });
+  }, [allRequests, filter, role, sortKey, sortDir]);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {

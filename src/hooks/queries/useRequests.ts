@@ -112,9 +112,6 @@ export function useInfiniteRequests(
         where("projectId", "==", projectId),
         ...statusConstraint,
         orderBy(sortField, sortDir),
-        ...(sortField !== "createdAt"
-          ? [orderBy("createdAt", sortDir)]
-          : []),
       ];
       if (pageParam) constraints.push(startAfter(pageParam));
       constraints.push(limit(PAGE_SIZE));
