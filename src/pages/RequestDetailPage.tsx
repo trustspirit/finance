@@ -72,12 +72,12 @@ export default function RequestDetailPage() {
     setSlideState('out')
     setTimeout(() => {
       if (nextIdRef.current) {
-        navigate(`/request/${nextIdRef.current}`)
+        navigate(`/request/${nextIdRef.current}`, { state: { from: backPath } })
       } else {
-        navigate('/admin/requests')
+        navigate(backPath)
       }
     }, 300)
-  }, [navigate])
+  }, [navigate, backPath])
 
   // Slide-in animation on route change
   useEffect(() => {
@@ -129,6 +129,7 @@ export default function RequestDetailPage() {
   const handleApproveOpen = () => {
     if (!request) return
     if (isSelf) { alert(t('approval.selfApproveError')); return }
+    if (!appUser?.signature) { alert(t('validation.signatureRequired')); return }
     if (!canFinalApproveRequest(role, request.committee, request.totalAmount, threshold)) {
       if (request.totalAmount > threshold) alert(t('approval.directorRequired'))
       return

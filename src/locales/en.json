@@ -140,6 +140,7 @@
     "itemsRequired": "At least one item is required (description and amount).",
     "budgetCodeRequired": "Budget code is required for all items.",
     "receiptsRequired": "Please attach receipt files.",
+    "signatureRequired": "Signature is required. Please register your signature in settings.",
     "bankBookRequired": "Bank book copy is required. Please upload in settings.",
     "duplicateAmount": "A request with the same amount ₩{{amount}} already exists ({{date}}). This might be a duplicate. Continue anyway?",
     "noChanges": "No changes detected. Please modify at least one field.",

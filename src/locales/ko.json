@@ -140,6 +140,7 @@
     "itemsRequired": "최소 1개 이상의 항목을 입력해주세요. (설명과 금액 필수)",
     "budgetCodeRequired": "모든 항목의 예산 코드를 선택해주세요.",
     "receiptsRequired": "영수증 파일을 첨부해주세요.",
+    "signatureRequired": "서명이 등록되지 않았습니다. 설정에서 서명을 등록해주세요.",
     "bankBookRequired": "통장사본이 등록되지 않았습니다. 설정에서 통장사본을 업로드해주세요.",
     "duplicateAmount": "₩{{amount}} 동일 금액의 신청서가 이미 있습니다 ({{date}}). 중복 신청이 아닌지 확인해주세요. 계속 진행하시겠습니까?",
     "noChanges": "원본 신청서에서 변경된 내용이 없습니다. 수정 후 재신청해주세요.",

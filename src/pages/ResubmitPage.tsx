@@ -111,6 +111,7 @@ export default function ResubmitPage() {
     if (files.length === 0 && (!original?.receipts || original.receipts.length === 0)) {
       errs.push(t('validation.receiptsRequired'))
     }
+    if (!appUser?.signature) errs.push(t('validation.signatureRequired'))
     if (!appUser?.bankBookUrl && !appUser?.bankBookDriveUrl) errs.push(t('validation.bankBookRequired'))
     if (!hasChanges()) errs.push(t('validation.noChanges'))
     return errs
