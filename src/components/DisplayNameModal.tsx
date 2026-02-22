@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { httpsCallable } from 'firebase/functions'
 import { functions } from '../lib/firebase'
 import { useAuth } from '../contexts/AuthContext'
 import { Committee } from '../types'
-import { formatPhone, fileToBase64, validateBankBookFile } from '../lib/utils'
+import { formatPhone, formatBankAccount, fileToBase64, validateBankBookFile } from '../lib/utils'
+import BankSelect from './BankSelect'
 import ErrorAlert from './ErrorAlert'
 import CommitteeSelect from './CommitteeSelect'
 import FormField from './FormField'
@@ -21,6 +22,13 @@ export default function DisplayNameModal() {
   const [bankBookError, setBankBookError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
+
+  // Re-format account number when bank changes
+  const bankNameMounted = useRef(false)
+  useEffect(() => {
+    if (!bankNameMounted.current) { bankNameMounted.current = true; return }
+    if (bankName && bankAccount) setBankAccount(formatBankAccount(bankAccount, bankName))
+  }, [bankName]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const validate = (): string[] => {
     const errs: string[] = []
@@ -98,13 +106,12 @@ export default function DisplayNameModal() {
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
           </FormField>
 
-          <FormField label={t('field.bank')} required>
-            <input type="text" value={bankName} onChange={(e) => setBankName(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
-          </FormField>
+          <BankSelect value={bankName} onChange={setBankName} label={`${t('field.bank')} *`} />
 
           <FormField label={t('field.bankAccount')} required>
-            <input type="text" value={bankAccount} onChange={(e) => setBankAccount(e.target.value)}
+            <input type="text" value={bankAccount}
+              onChange={(e) => setBankAccount(formatBankAccount(e.target.value, bankName))}
+              placeholder={t('field.bankAccount')}
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
           </FormField>
 

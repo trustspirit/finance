@@ -121,14 +121,19 @@ export default function AdminRequestsPage() {
   const renderRemarks = (req: typeof allRequests[0]) => {
     const parts: React.ReactNode[] = [];
 
-    // Resubmission badge
+    // Resubmission badge + original link
     if (req.originalRequestId) {
       parts.push(
-        <Link key="resub" to={`/request/${req.originalRequestId}`}
-          className="inline-block px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] font-medium hover:bg-amber-200"
-          onClick={(e) => e.stopPropagation()}>
-          {t("approval.resubmitted")}
-        </Link>
+        <span key="resub-group" className="inline-flex items-center gap-1">
+          <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] font-medium">
+            {t("approval.resubmitted")}
+          </span>
+          <Link to={`/request/${req.originalRequestId}`}
+            className="text-[10px] text-amber-600 hover:text-amber-800 hover:underline"
+            onClick={(e) => e.stopPropagation()}>
+            {t("approval.viewOriginal")}
+          </Link>
+        </span>
       );
     }
 

@@ -622,3 +622,121 @@ export const weeklyApproverDigest = onSchedule(
     }
   }
 )
+
+// --- Receipt OCR ---
+
+const BUDGET_CODE_KEYWORDS: Record<number, string[]> = {
+  5110: ['택시', '버스', 'KTX', '주유', '교통', '기차', '지하철', '톨게이트', '주차', '고속버스', 'SRT', '항공', '비행기'],
+  5862: ['숙박', '호텔', '펜션', '모텔', '게스트하우스', '에어비앤비', '대관', '대여'],
+  5400: ['식사', '식비', '카페', '음식', '식당', '배달', '커피', '점심', '저녁', '보험', '다과'],
+  5200: ['문구', '용품', '인쇄', '복사', '프린트', '물품', '자재', '구매'],
+}
+
+function suggestBudgetCode(text: string): number {
+  const lower = text.toLowerCase()
+  for (const [code, keywords] of Object.entries(BUDGET_CODE_KEYWORDS)) {
+    if (keywords.some(kw => lower.includes(kw))) {
+      return Number(code)
+    }
+  }
+  return 0
+}
+
+function parseReceiptItems(rawText: string): { description: string; amount: number; suggestedBudgetCode: number }[] {
+  const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean)
+  const items: { description: string; amount: number; suggestedBudgetCode: number }[] = []
+
+  // Pattern: find lines with Korean text and amounts (number with commas)
+  const amountPattern = /([가-힣a-zA-Z\s\-/]+)\s+([\d,]+)\s*원?$/
+
+  for (const line of lines) {
+    const match = line.match(amountPattern)
+    if (match) {
+      const desc = match[1].trim()
+      const amount = parseInt(match[2].replace(/,/g, ''), 10)
+      if (amount >= 100 && amount <= 100_000_000 && desc.length > 0) {
+        items.push({
+          description: desc,
+          amount,
+          suggestedBudgetCode: suggestBudgetCode(desc),
+        })
+      }
+    }
+  }
+
+  // If no structured items found, try to extract total amount
+  if (items.length === 0) {
+    let maxAmount = 0
+    for (const line of lines) {
+      const totalMatch = line.match(/(합계|총액|total|결제|승인)\s*:?\s*([\d,]+)\s*원?/i)
+      if (totalMatch) {
+        const amount = parseInt(totalMatch[2].replace(/,/g, ''), 10)
+        if (amount > maxAmount) maxAmount = amount
+      }
+      const standaloneMatch = line.match(/^([\d,]+)\s*원?\s*$/)
+      if (standaloneMatch) {
+        const amount = parseInt(standaloneMatch[1].replace(/,/g, ''), 10)
+        if (amount > maxAmount) maxAmount = amount
+      }
+    }
+    if (maxAmount > 0) {
+      items.push({
+        description: '영수증 항목',
+        amount: maxAmount,
+        suggestedBudgetCode: suggestBudgetCode(rawText),
+      })
+    }
+  }
+
+  return items
+}
+
+// 영수증 OCR 스캔
+export const scanReceiptV2 = onCall(
+  { memory: '512MiB', timeoutSeconds: 120 },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Must be logged in')
+    }
+
+    const { files } = request.data as { files: Array<{ name: string; data: string }> }
+    if (!files || files.length === 0) {
+      throw new HttpsError('invalid-argument', 'No files provided')
+    }
+    if (files.length > 10) {
+      throw new HttpsError('invalid-argument', 'Maximum 10 files allowed')
+    }
+
+    // Dynamic import to avoid loading heavy Vision SDK for all functions
+    const { ImageAnnotatorClient } = await import('@google-cloud/vision')
+    const client = new ImageAnnotatorClient()
+    const allItems: { description: string; amount: number; suggestedBudgetCode: number }[] = []
+    let combinedRawText = ''
+
+    for (const file of files) {
+      try {
+        const base64Data = file.data.includes(',') ? file.data.split(',')[1] : file.data
+
+        const [result] = await client.textDetection({
+          image: { content: base64Data },
+        })
+
+        const rawText = result.fullTextAnnotation?.text || ''
+        combinedRawText += rawText + '\n'
+
+        const items = parseReceiptItems(rawText)
+        allItems.push(...items)
+      } catch (error) {
+        console.error(`OCR failed for ${file.name}:`, error)
+      }
+    }
+
+    const totalAmount = allItems.reduce((sum, item) => sum + item.amount, 0)
+
+    return {
+      items: allItems,
+      totalAmount,
+      rawText: combinedRawText,
+    }
+  }
+)

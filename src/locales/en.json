@@ -109,7 +109,8 @@
     "approver": "Approver",
     "requestedBy": "Requested by",
     "approvedBy": "Approved by",
-    "remarks": "Remarks"
+    "remarks": "Remarks",
+    "bankSelect": "Select Bank"
   },
   "form": {
     "title": "Payment / Reimbursement Request Form",
@@ -183,7 +184,8 @@
     "directorRequired": "Over ₩600,000 — Director/Executive approval required",
     "cancelRequest": "Cancel Request",
     "cancelConfirm": "Are you sure you want to cancel this request?",
-    "remainingCount": "{{count}} remaining"
+    "remainingCount": "{{count}} remaining",
+    "viewOriginal": "View Original"
   },
   "settlement": {
     "title": "Settlement",
@@ -354,6 +356,13 @@
       "otherAdmin": "Other Administrative Expenses",
       "participationFee": "Participation Fee"
     }
+  },
+  "ocr": {
+    "scanButton": "Scan Receipts",
+    "scanning": "Scanning...",
+    "scanComplete": "Scan complete — please review items",
+    "scanFailed": "Scan failed. Please enter manually.",
+    "replaceItems": "Replace items with scan results?"
   },
   "receipts": {
     "title": "Receipt Management",

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate, useBlocker } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../hooks/queries/queryKeys'
@@ -7,6 +7,7 @@ import { useProject } from '../contexts/ProjectContext'
 import { useCreateRequest, useMyRequests } from '../hooks/queries/useRequests'
 import { useUploadReceipts } from '../hooks/queries/useCloudFunctions'
 import { RequestItem, Receipt, Committee } from '../types'
+import type { ScanReceiptResult } from '../hooks/queries/useCloudFunctions'
 import Layout from '../components/Layout'
 import ProcessingOverlay from '../components/ProcessingOverlay'
 import ItemRow from '../components/ItemRow'
@@ -15,7 +16,8 @@ import FileUpload from '../components/FileUpload'
 import CommitteeSelect from '../components/CommitteeSelect'
 import ConfirmModal from '../components/ConfirmModal'
 import { useTranslation } from 'react-i18next'
-import { formatPhone, fileToBase64 } from '../lib/utils'
+import { formatPhone, formatBankAccount, fileToBase64 } from '../lib/utils'
+import BankSelect from '../components/BankSelect'
 
 const DRAFT_KEY = 'request-form-draft'
 const emptyItem = (): RequestItem => ({ description: '', budgetCode: 0, amount: 0 })
@@ -78,6 +80,13 @@ export default function RequestFormPage() {
   const [errors, setErrors] = useState<string[]>([])
   const [submitted, setSubmitted] = useState(false)
   const [showDraftBanner, setShowDraftBanner] = useState(!!draft)
+
+  // Re-format account number when bank changes
+  const bankNameMounted = useRef(false)
+  useEffect(() => {
+    if (!bankNameMounted.current) { bankNameMounted.current = true; return }
+    if (bankName && bankAccount) setBankAccount(formatBankAccount(bankAccount, bankName))
+  }, [bankName]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const totalAmount = items.reduce((sum, item) => sum + item.amount, 0)
   const validItems = items.filter((item) => item.description && item.amount > 0)
@@ -147,6 +156,17 @@ export default function RequestFormPage() {
 
   const addItem = () => {
     if (items.length < 10) setItems([...items, emptyItem()])
+  }
+
+  const handleScanComplete = (result: ScanReceiptResult) => {
+    if (result.items.length === 0) return
+    const hasExisting = items.some(item => item.description || item.amount > 0)
+    if (hasExisting && !confirm(t('ocr.replaceItems'))) return
+    setItems(result.items.map(item => ({
+      description: item.description,
+      budgetCode: item.suggestedBudgetCode,
+      amount: item.amount,
+    })))
   }
 
   const validate = (): string[] => {
@@ -309,19 +329,15 @@ export default function RequestFormPage() {
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-gray-100" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t('field.bank')} <span className="text-red-500">*</span>
-            </label>
-            <input type="text" value={bankName} onChange={(e) => setBankName(e.target.value)}
-              placeholder="예: 국민은행"
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
+            <BankSelect value={bankName} onChange={setBankName} label={`${t('field.bank')} *`} />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               {t('field.bankAccount')} <span className="text-red-500">*</span>
             </label>
-            <input type="text" value={bankAccount} onChange={(e) => setBankAccount(e.target.value)}
-              placeholder="예: 123-456-789012"
+            <input type="text" value={bankAccount}
+              onChange={(e) => setBankAccount(formatBankAccount(e.target.value, bankName))}
+              placeholder={t('field.bankAccount')}
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
           </div>
           <div className="sm:col-span-2">
@@ -350,7 +366,7 @@ export default function RequestFormPage() {
           </div>
         </div>
 
-        <FileUpload files={files} onFilesChange={setFiles} />
+        <FileUpload files={files} onFilesChange={setFiles} onScanComplete={handleScanComplete} />
 
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 mb-1">{t('field.comments')}</label>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../hooks/queries/queryKeys'
@@ -7,13 +7,15 @@ import { useProject } from '../contexts/ProjectContext'
 import { useRequest, useCreateRequest } from '../hooks/queries/useRequests'
 import { useUploadReceipts } from '../hooks/queries/useCloudFunctions'
 import { RequestItem, Receipt, Committee } from '../types'
+import type { ScanReceiptResult } from '../hooks/queries/useCloudFunctions'
 import Layout from '../components/Layout'
 import ProcessingOverlay from '../components/ProcessingOverlay'
 import ItemRow from '../components/ItemRow'
 import FileUpload from '../components/FileUpload'
 import CommitteeSelect from '../components/CommitteeSelect'
 import ConfirmModal from '../components/ConfirmModal'
-import { formatPhone, fileToBase64 } from '../lib/utils'
+import { formatPhone, formatBankAccount, fileToBase64 } from '../lib/utils'
+import BankSelect from '../components/BankSelect'
 import ErrorAlert from '../components/ErrorAlert'
 import Spinner from '../components/Spinner'
 import { useTranslation } from 'react-i18next'
@@ -58,6 +60,13 @@ export default function ResubmitPage() {
     setComments(original.comments)
   }, [original])
 
+  // Re-format account number when bank changes
+  const bankNameMounted = useRef(false)
+  useEffect(() => {
+    if (!bankNameMounted.current) { bankNameMounted.current = true; return }
+    if (bankName && bankAccount) setBankAccount(formatBankAccount(bankAccount, bankName))
+  }, [bankName]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const totalAmount = items.reduce((sum, item) => sum + item.amount, 0)
   const validItems = items.filter((item) => item.description && item.amount > 0)
 
@@ -96,6 +105,17 @@ export default function ResubmitPage() {
 
   const addItem = () => {
     if (items.length < 10) setItems([...items, emptyItem()])
+  }
+
+  const handleScanComplete = (result: ScanReceiptResult) => {
+    if (result.items.length === 0) return
+    const hasExisting = items.some(item => item.description || item.amount > 0)
+    if (hasExisting && !confirm(t('ocr.replaceItems'))) return
+    setItems(result.items.map(item => ({
+      description: item.description,
+      budgetCode: item.suggestedBudgetCode,
+      amount: item.amount,
+    })))
   }
 
   const validate = (): string[] => {
@@ -231,13 +251,13 @@ export default function ResubmitPage() {
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-gray-100" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{t('field.bank')} <span className="text-red-500">*</span></label>
-            <input type="text" value={bankName} onChange={(e) => setBankName(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
+            <BankSelect value={bankName} onChange={setBankName} label={`${t('field.bank')} *`} />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">{t('field.bankAccount')} <span className="text-red-500">*</span></label>
-            <input type="text" value={bankAccount} onChange={(e) => setBankAccount(e.target.value)}
+            <input type="text" value={bankAccount}
+              onChange={(e) => setBankAccount(formatBankAccount(e.target.value, bankName))}
+              placeholder={t('field.bankAccount')}
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
           </div>
           <div className="sm:col-span-2">
@@ -265,6 +285,7 @@ export default function ResubmitPage() {
         <FileUpload
           files={files}
           onFilesChange={setFiles}
+          onScanComplete={handleScanComplete}
           existingCount={original.receipts.length}
           existingLabel={`${t('field.receipts')} ${original.receipts.length} - existing kept. Upload new to replace.`}
         />

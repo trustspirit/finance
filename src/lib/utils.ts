@@ -1,9 +1,28 @@
+import { BANKS } from '../constants/banks'
+
 /** 전화번호 자동 포맷 (010-0000-0000) */
 export function formatPhone(value: string): string {
   const digits = value.replace(/\D/g, '').slice(0, 11)
   if (digits.length <= 3) return digits
   if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`
   return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`
+}
+
+/** 계좌번호 자동 포맷 (은행별 패턴) */
+export function formatBankAccount(value: string, bankName: string): string {
+  const bank = BANKS.find(b => b.name === bankName)
+  const digits = value.replace(/\D/g, '').slice(0, bank?.maxDigits ?? 16)
+  if (!bank) return digits
+
+  let result = ''
+  let pos = 0
+  for (const len of bank.format) {
+    if (pos >= digits.length) break
+    if (pos > 0) result += '-'
+    result += digits.slice(pos, pos + len)
+    pos += len
+  }
+  return result
 }
 
 /** File → base64 data URL 변환 */

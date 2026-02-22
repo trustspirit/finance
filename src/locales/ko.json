@@ -109,7 +109,8 @@
     "approver": "승인자",
     "requestedBy": "신청자",
     "approvedBy": "승인자",
-    "remarks": "비고"
+    "remarks": "비고",
+    "bankSelect": "은행 선택"
   },
   "form": {
     "title": "지불 / 환불 신청서",
@@ -183,7 +184,8 @@
     "directorRequired": "60만원 초과 — 위원장/대회장 승인 필요",
     "cancelRequest": "신청 취소",
     "cancelConfirm": "이 신청서를 취소하시겠습니까?",
-    "remainingCount": "{{count}}건 남음"
+    "remainingCount": "{{count}}건 남음",
+    "viewOriginal": "원본 보기"
   },
   "settlement": {
     "title": "정산 처리",
@@ -354,6 +356,13 @@
       "otherAdmin": "기타 행정 비용",
       "participationFee": "참가비"
     }
+  },
+  "ocr": {
+    "scanButton": "영수증 스캔",
+    "scanning": "스캔 중...",
+    "scanComplete": "스캔 완료 — 항목을 확인해주세요",
+    "scanFailed": "스캔에 실패했습니다. 직접 입력해주세요.",
+    "replaceItems": "스캔 결과로 항목을 교체하시겠습니까?"
   },
   "receipts": {
     "title": "영수증 관리",

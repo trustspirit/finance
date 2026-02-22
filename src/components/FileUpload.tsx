@@ -1,10 +1,12 @@
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { validateFiles } from '../lib/utils'
+import { validateFiles, fileToBase64 } from '../lib/utils'
+import { useScanReceipts, type ScanReceiptResult } from '../hooks/queries/useCloudFunctions'
 
 interface Props {
   files: File[]
   onFilesChange: (files: File[]) => void
+  onScanComplete?: (result: ScanReceiptResult) => void
   label?: string
   required?: boolean
   existingCount?: number
@@ -12,11 +14,14 @@ interface Props {
 }
 
 export default function FileUpload({
-  files, onFilesChange, label, required = true,
+  files, onFilesChange, onScanComplete, label, required = true,
   existingCount, existingLabel,
 }: Props) {
   const { t } = useTranslation()
   const [errors, setErrors] = useState<string[]>([])
+  const [scanning, setScanning] = useState(false)
+  const [scanStatus, setScanStatus] = useState<'idle' | 'success' | 'error'>('idle')
+  const scanReceipts = useScanReceipts()
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || [])
@@ -24,14 +29,51 @@ export default function FileUpload({
     setErrors(fileErrs)
     onFilesChange([...files, ...valid])
     e.target.value = ''
+    setScanStatus('idle')
   }
 
-  // Generate preview URLs for image files
-  const previews = useMemo(() =>
-    files.map((f) => ({
+  const handleScan = async () => {
+    if (files.length === 0) return
+    setScanning(true)
+    setScanStatus('idle')
+    try {
+      const fileData = await Promise.all(
+        files.map(async (f) => ({
+          name: f.name,
+          data: await fileToBase64(f),
+        }))
+      )
+      const result = await scanReceipts.mutateAsync({ files: fileData })
+      if (result.items.length === 0) {
+        setScanStatus('error')
+      } else {
+        setScanStatus('success')
+        onScanComplete?.(result)
+      }
+    } catch {
+      setScanStatus('error')
+    } finally {
+      setScanning(false)
+    }
+  }
+
+  // Generate preview URLs for image files (with cleanup to prevent memory leaks)
+  const previewsRef = useRef<{ url: string; isImage: boolean }[]>([])
+
+  useEffect(() => {
+    // Revoke old URLs
+    previewsRef.current.forEach(p => URL.revokeObjectURL(p.url))
+    // Create new URLs
+    previewsRef.current = files.map((f) => ({
       url: URL.createObjectURL(f),
       isImage: f.type.startsWith('image/'),
-    })), [files])
+    }))
+    return () => {
+      previewsRef.current.forEach(p => URL.revokeObjectURL(p.url))
+    }
+  }, [files])
+
+  const previews = previewsRef.current
 
   return (
     <div className="mb-6">
@@ -50,7 +92,25 @@ export default function FileUpload({
         onChange={handleChange}
         className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
       />
-      <p className="text-xs text-gray-400 mt-1">{t('form.receiptHint')}</p>
+      <div className="flex items-center gap-2 mt-1">
+        <p className="text-xs text-gray-400">{t('form.receiptHint')}</p>
+        {onScanComplete && files.length > 0 && (
+          <button
+            type="button"
+            onClick={handleScan}
+            disabled={scanning}
+            className="text-xs bg-purple-50 text-purple-700 px-3 py-1 rounded hover:bg-purple-100 disabled:bg-gray-100 disabled:text-gray-400 whitespace-nowrap font-medium"
+          >
+            {scanning ? t('ocr.scanning') : t('ocr.scanButton')}
+          </button>
+        )}
+      </div>
+      {scanStatus === 'success' && (
+        <p className="text-xs text-green-600 mt-1">{t('ocr.scanComplete')}</p>
+      )}
+      {scanStatus === 'error' && (
+        <p className="text-xs text-red-600 mt-1">{t('ocr.scanFailed')}</p>
+      )}
       {errors.length > 0 && (
         <ul className="mt-2 text-sm text-red-600 space-y-1">
           {errors.map((err, i) => <li key={i}>{err}</li>)}

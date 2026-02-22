@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../../hooks/queries/queryKeys'
-import { formatPhone, fileToBase64, validateBankBookFile } from '../../lib/utils'
+import { formatPhone, formatBankAccount, fileToBase64, validateBankBookFile } from '../../lib/utils'
+import BankSelect from '../BankSelect'
 import { useAuth } from '../../contexts/AuthContext'
 import { Committee } from '../../types'
 import SignaturePad from '../SignaturePad'
@@ -24,6 +25,13 @@ export default function PersonalSettings() {
   const [uploadingBankBook, setUploadingBankBook] = useState(false)
   const [bankBookError, setBankBookError] = useState<string | null>(null)
   const hasBankBook = !!(appUser?.bankBookUrl || appUser?.bankBookDriveUrl)
+
+  // Re-format account number when bank changes
+  const bankNameMounted = useRef(false)
+  useEffect(() => {
+    if (!bankNameMounted.current) { bankNameMounted.current = true; return }
+    if (bankName && bankAccount) setBankAccount(formatBankAccount(bankAccount, bankName))
+  }, [bankName]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const queryClient = useQueryClient()
   const uploadBankBook = useUploadBankBook()
@@ -53,10 +61,10 @@ export default function PersonalSettings() {
   return (
     <>
       <div className="mb-6 p-4 border border-gray-200 rounded-lg">
-        <label className="block text-sm font-medium text-gray-700 mb-2">{i18n.language === 'ko' ? '언어' : 'Language'}</label>
+        <label className="block text-sm font-medium text-gray-700 mb-2">{i18n.language.startsWith('ko') ? '언어' : 'Language'}</label>
         <div className="flex gap-2">
-          <button onClick={() => i18n.changeLanguage('ko')} className={`px-4 py-2 rounded text-sm font-medium ${i18n.language === 'ko' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>한국어</button>
-          <button onClick={() => i18n.changeLanguage('en')} className={`px-4 py-2 rounded text-sm font-medium ${i18n.language === 'en' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>English</button>
+          <button onClick={() => i18n.changeLanguage('ko')} className={`px-4 py-2 rounded text-sm font-medium ${i18n.language.startsWith('ko') ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>한국어</button>
+          <button onClick={() => i18n.changeLanguage('en')} className={`px-4 py-2 rounded text-sm font-medium ${i18n.language.startsWith('en') ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>English</button>
         </div>
       </div>
       <div className="mb-4">
@@ -77,12 +85,14 @@ export default function PersonalSettings() {
         <input type="tel" value={phone} onChange={(e) => setPhone(formatPhone(e.target.value))} placeholder="010-0000-0000" className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
       </div>
       <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-1">{t('field.bank')}</label>
-        <input type="text" value={bankName} onChange={(e) => setBankName(e.target.value)} className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
+        <BankSelect value={bankName} onChange={setBankName} label={t('field.bank')} />
       </div>
       <div className="mb-4">
         <label className="block text-sm font-medium text-gray-700 mb-1">{t('field.bankAccount')}</label>
-        <input type="text" value={bankAccount} onChange={(e) => setBankAccount(e.target.value)} className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
+        <input type="text" value={bankAccount}
+          onChange={(e) => setBankAccount(formatBankAccount(e.target.value, bankName))}
+          placeholder={t('field.bankAccount')}
+          className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
       </div>
       <div className="mb-4 p-4 border border-gray-200 rounded-lg">
         <label className="block text-sm font-medium text-gray-700 mb-2">{t('field.bankBook')} <span className="text-red-500">*</span></label>
