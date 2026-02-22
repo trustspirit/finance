@@ -71,6 +71,7 @@ export default function RequestDetailPage() {
   const navigateToNext = useCallback(() => {
     setSlideState('out')
     setTimeout(() => {
+      window.scrollTo({ top: 0 })
       if (nextIdRef.current) {
         navigate(`/request/${nextIdRef.current}`, { state: { from: backPath } })
       } else {

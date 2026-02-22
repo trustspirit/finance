@@ -15,6 +15,7 @@ interface ScanReceiptResult {
   }>
   totalAmount: number
   rawText: string
+  errors?: string[]
 }
 
 interface UploadReceiptsInput {

@@ -21,6 +21,7 @@ export default function FileUpload({
   const [errors, setErrors] = useState<string[]>([])
   const [scanning, setScanning] = useState(false)
   const [scanStatus, setScanStatus] = useState<'idle' | 'success' | 'error'>('idle')
+  const [scanRawText, setScanRawText] = useState('')
   const scanReceipts = useScanReceipts()
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -44,13 +45,16 @@ export default function FileUpload({
         }))
       )
       const result = await scanReceipts.mutateAsync({ files: fileData })
+      setScanRawText(result.rawText)
       if (result.items.length === 0) {
         setScanStatus('error')
       } else {
         setScanStatus('success')
         onScanComplete?.(result)
       }
-    } catch {
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      setScanRawText(msg)
       setScanStatus('error')
     } finally {
       setScanning(false)
@@ -102,7 +106,19 @@ export default function FileUpload({
         <p className="text-xs text-green-600 mt-1">{t('ocr.scanComplete')}</p>
       )}
       {scanStatus === 'error' && (
-        <p className="text-xs text-red-600 mt-1">{t('ocr.scanFailed')}</p>
+        <div className="mt-1">
+          <p className="text-xs text-red-600">{t('ocr.scanFailed')}</p>
+          {scanRawText && (
+            <details className="mt-1">
+              <summary className="text-xs text-gray-500 cursor-pointer hover:text-gray-700">
+                {t('ocr.showRawText')}
+              </summary>
+              <pre className="mt-1 p-2 bg-gray-50 border border-gray-200 rounded text-[11px] text-gray-600 whitespace-pre-wrap max-h-40 overflow-y-auto">
+                {scanRawText}
+              </pre>
+            </details>
+          )}
+        </div>
       )}
       {errors.length > 0 && (
         <ul className="mt-2 text-sm text-red-600 space-y-1">

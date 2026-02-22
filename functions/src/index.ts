@@ -642,44 +642,69 @@ function suggestBudgetCode(text: string): number {
   return 0
 }
 
+function parseAmount(str: string): number {
+  return parseInt(str.replace(/,/g, ''), 10) || 0
+}
+
+function isValidAmount(n: number): boolean {
+  return n >= 100 && n <= 100_000_000
+}
+
 function parseReceiptItems(rawText: string): { description: string; amount: number; suggestedBudgetCode: number }[] {
   const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean)
   const items: { description: string; amount: number; suggestedBudgetCode: number }[] = []
 
-  // Pattern: find lines with Korean text and amounts (number with commas)
-  const amountPattern = /([가-힣a-zA-Z\s\-/]+)\s+([\d,]+)\s*원?$/
+  // Skip lines that look like dates, phone numbers, card numbers, addresses
+  const skipPattern = /^(\d{4}[-/.]\d{2}[-/.]\d{2}|(\d{2,4}-){2,}\d{2,}|\d{10,}|.*[시군구동로길]\s*\d)/
+
+  const patterns = [
+    // "설명 금액원" or "설명 금액"
+    /^(.+?)\s+([\d,]+)\s*원\s*$/,
+    // "설명  금액" (2+ spaces separating description and amount)
+    /^(.+?)\s{2,}([\d,]+)\s*$/,
+    // "금액원 설명" (amount first)
+    /^([\d,]+)\s*원\s+(.+)$/,
+  ]
 
   for (const line of lines) {
-    const match = line.match(amountPattern)
-    if (match) {
-      const desc = match[1].trim()
-      const amount = parseInt(match[2].replace(/,/g, ''), 10)
-      if (amount >= 100 && amount <= 100_000_000 && desc.length > 0) {
-        items.push({
-          description: desc,
-          amount,
-          suggestedBudgetCode: suggestBudgetCode(desc),
-        })
+    if (skipPattern.test(line)) continue
+
+    for (const pattern of patterns) {
+      const match = line.match(pattern)
+      if (!match) continue
+
+      // patterns[2] has amount first, rest have description first
+      const isAmountFirst = pattern === patterns[2]
+      const desc = (isAmountFirst ? match[2] : match[1]).trim()
+      const amount = parseAmount(isAmountFirst ? match[1] : match[2])
+
+      // Filter: valid amount, description has Korean or meaningful text, not a total/header line
+      if (isValidAmount(amount) && desc.length > 0 && /[가-힣a-zA-Z]/.test(desc)
+        && !/^(합계|총액|total|소계|subtotal|부가세|과세|면세|거스름|잔액)/i.test(desc)) {
+        items.push({ description: desc, amount, suggestedBudgetCode: suggestBudgetCode(desc) })
+        break
       }
     }
   }
 
-  // If no structured items found, try to extract total amount
+  // Fallback: find total/payment amount
   if (items.length === 0) {
     let maxAmount = 0
     for (const line of lines) {
-      const totalMatch = line.match(/(합계|총액|total|결제|승인)\s*:?\s*([\d,]+)\s*원?/i)
+      // "합계 7,300원", "결제금액: 7,300", "Total 7,300"
+      const totalMatch = line.match(/(합계|총액|total|결제|승인|청구|지불)\s*:?\s*([\d,]+)\s*원?/i)
       if (totalMatch) {
-        const amount = parseInt(totalMatch[2].replace(/,/g, ''), 10)
+        const amount = parseAmount(totalMatch[2])
         if (amount > maxAmount) maxAmount = amount
       }
-      const standaloneMatch = line.match(/^([\d,]+)\s*원?\s*$/)
-      if (standaloneMatch) {
-        const amount = parseInt(standaloneMatch[1].replace(/,/g, ''), 10)
+      // "7,300원" standalone
+      const wonMatch = line.match(/^([\d,]+)\s*원\s*$/)
+      if (wonMatch) {
+        const amount = parseAmount(wonMatch[1])
         if (amount > maxAmount) maxAmount = amount
       }
     }
-    if (maxAmount > 0) {
+    if (isValidAmount(maxAmount)) {
       items.push({
         description: '영수증 항목',
         amount: maxAmount,
@@ -712,6 +737,7 @@ export const scanReceiptV2 = onCall(
     const client = new ImageAnnotatorClient()
     const allItems: { description: string; amount: number; suggestedBudgetCode: number }[] = []
     let combinedRawText = ''
+    const errors: string[] = []
 
     for (const file of files) {
       try {
@@ -726,9 +752,16 @@ export const scanReceiptV2 = onCall(
 
         const items = parseReceiptItems(rawText)
         allItems.push(...items)
-      } catch (error) {
-        console.error(`OCR failed for ${file.name}:`, error)
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error)
+        console.error(`OCR failed for ${file.name}:`, msg)
+        errors.push(`${file.name}: ${msg}`)
       }
+    }
+
+    // If all files failed, throw so the frontend sees the actual error
+    if (errors.length === files.length) {
+      throw new HttpsError('internal', errors.join('\n'))
     }
 
     const totalAmount = allItems.reduce((sum, item) => sum + item.amount, 0)
@@ -737,6 +770,7 @@ export const scanReceiptV2 = onCall(
       items: allItems,
       totalAmount,
       rawText: combinedRawText,
+      errors,
     }
   }
 )

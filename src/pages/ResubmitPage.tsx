@@ -143,6 +143,7 @@ export default function ResubmitPage() {
     const validationErrors = validate()
     if (validationErrors.length > 0) {
       setErrors(validationErrors)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
       return
     }
     setErrors([])

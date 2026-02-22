@@ -102,6 +102,7 @@ export default function SettlementPage() {
   const advanceReview = useCallback(() => {
     setReviewIndex(prev => {
       if (prev < reviewSnapshot.length - 1) {
+        window.scrollTo({ top: 0, behavior: 'smooth' })
         return prev + 1
       }
       setReviewPhase('summary')

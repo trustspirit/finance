@@ -361,7 +361,8 @@
     "scanButton": "Scan Receipts",
     "scanning": "Scanning...",
     "scanComplete": "Scan complete — please review items",
-    "scanFailed": "Scan failed. Please enter manually.",
+    "scanFailed": "Could not extract items automatically. Please enter manually.",
+    "showRawText": "Show recognized text",
     "replaceItems": "Replace items with scan results?"
   },
   "receipts": {
