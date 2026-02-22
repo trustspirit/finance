@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { validateFiles, fileToBase64 } from '../lib/utils'
 import { useScanReceipts, type ScanReceiptResult } from '../hooks/queries/useCloudFunctions'
@@ -57,19 +57,16 @@ export default function FileUpload({
     }
   }
 
-  // Generate preview URLs for image files (with cleanup to prevent memory leaks)
-  const [previews, setPreviews] = useState<{ url: string; isImage: boolean }[]>([])
-
-  useEffect(() => {
-    const next = files.map((f) => ({
+  // Generate preview URLs synchronously for render, clean up on files change / unmount
+  const previews = useMemo(() =>
+    files.map((f) => ({
       url: URL.createObjectURL(f),
       isImage: f.type.startsWith('image/'),
-    }))
-    setPreviews(next)
-    return () => {
-      next.forEach(p => URL.revokeObjectURL(p.url))
-    }
-  }, [files])
+    })), [files])
+
+  useEffect(() => {
+    return () => { previews.forEach(p => URL.revokeObjectURL(p.url)) }
+  }, [previews])
 
   return (
     <div className="mb-6">
