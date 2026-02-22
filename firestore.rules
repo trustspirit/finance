@@ -1,10 +1,14 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function userRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
     match /users/{userId} {
       allow read: if request.auth != null;
       allow write: if request.auth.uid == userId
-        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+        || userRole() == 'admin';
     }
     match /requests/{requestId} {
       allow read: if request.auth != null;
@@ -12,12 +16,49 @@ service cloud.firestore {
         && request.resource.data.requestedBy.uid == request.auth.uid
         && request.resource.data.status == 'pending'
         && request.resource.data.approvedBy == null
-        && request.resource.data.approvalSignature == null;
+        && request.resource.data.approvalSignature == null
+        && request.resource.data.reviewedBy == null;
       allow update: if request.auth != null
         && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'director', 'finance', 'approver_ops', 'approver_prep']
+          // --- Reviewer transitions (pending → reviewed | rejected) ---
+          // Self-review prevention: reviewer cannot be the requester
+          // finance_ops: operations only, finance_prep/admin: all committees
+          (
+            resource.data.status == 'pending'
+            && request.resource.data.status in ['reviewed', 'rejected']
+            && request.auth.uid != resource.data.requestedBy.uid
+            && (
+              (userRole() == 'finance_ops' && resource.data.committee == 'operations')
+              || userRole() in ['finance_prep', 'admin']
+            )
+          )
+          // --- Final approver transitions (reviewed → approved | rejected) ---
+          // Self-approval prevention: approver cannot be the requester
+          // approver_ops: operations only, approver_prep: preparation only, director/admin: all
           || (
-            // Allow requester to cancel their own pending request (status field only)
+            resource.data.status == 'reviewed'
+            && request.resource.data.status in ['approved', 'rejected']
+            && request.auth.uid != resource.data.requestedBy.uid
+            && (
+              (userRole() == 'approver_ops' && resource.data.committee == 'operations')
+              || (userRole() == 'approver_prep' && resource.data.committee == 'preparation')
+              || userRole() in ['director', 'admin']
+            )
+          )
+          // --- Settlement: approved → settled (finance_prep, admin) ---
+          || (
+            resource.data.status == 'approved'
+            && request.resource.data.status == 'settled'
+            && userRole() in ['finance_prep', 'admin']
+          )
+          // --- Force reject: approved → force_rejected (finance_prep, admin) ---
+          || (
+            resource.data.status == 'approved'
+            && request.resource.data.status == 'force_rejected'
+            && userRole() in ['finance_prep', 'admin']
+          )
+          // --- Requester cancel: pending → cancelled (own request only) ---
+          || (
             resource.data.requestedBy.uid == request.auth.uid
             && resource.data.status == 'pending'
             && request.resource.data.status == 'cancelled'
@@ -28,21 +69,20 @@ service cloud.firestore {
     match /settings/{docId} {
       allow read: if request.auth != null;
       allow write: if request.auth != null
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'finance'];
+        && userRole() in ['admin', 'finance_prep'];
     }
     match /settlements/{docId} {
       allow read: if request.auth != null
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'director', 'finance', 'approver_ops', 'approver_prep'];
+        && userRole() in ['admin', 'director', 'finance_prep', 'approver_ops', 'approver_prep'];
       allow write: if request.auth != null
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'director', 'finance', 'approver_ops', 'approver_prep'];
+        && userRole() in ['admin', 'finance_prep'];
     }
     match /projects/{projectId} {
       allow read: if request.auth != null;
       allow update: if request.auth != null
         && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+          userRole() == 'admin'
           || (
-            // Allow new users to add themselves to memberUids only
             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberUids'])
             && request.resource.data.memberUids.hasAll(resource.data.memberUids)
             && request.resource.data.memberUids.size() == resource.data.memberUids.size() + 1
@@ -50,9 +90,9 @@ service cloud.firestore {
           )
         );
       allow create: if request.auth != null
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+        && userRole() == 'admin';
       allow delete: if request.auth != null
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+        && userRole() == 'admin';
     }
   }
 }

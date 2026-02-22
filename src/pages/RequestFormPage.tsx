@@ -230,6 +230,8 @@ export default function RequestFormPage() {
         totalAmount: validItems.reduce((sum, item) => sum + item.amount, 0),
         receipts,
         requestedBy: { uid: user.uid, name: appUser.displayName || appUser.name, email: appUser.email },
+        reviewedBy: null,
+        reviewedAt: null,
         approvedBy: null,
         approvalSignature: null,
         approvedAt: null,

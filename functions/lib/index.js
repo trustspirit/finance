@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.weeklyApproverDigest = exports.onRequestStatusChange = exports.cleanupDeletedProjects = exports.downloadFileV2 = exports.uploadBankBookV2 = exports.uploadReceiptsV2 = void 0;
+exports.weeklyApproverDigest = exports.onRequestStatusChange = exports.onRequestCreated = exports.cleanupDeletedProjects = exports.downloadFileV2 = exports.uploadBankBookV2 = exports.uploadReceiptsV2 = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const scheduler_1 = require("firebase-functions/v2/scheduler");
 const firestore_1 = require("firebase-functions/v2/firestore");
@@ -202,6 +202,61 @@ function formatDate(date) {
     const d = date instanceof Date ? date : date.toDate();
     return d.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
+// 신청서 생성 시 → 해당 위원회 재정 담당자에게 검토 요청 알림
+exports.onRequestCreated = (0, firestore_1.onDocumentCreated)({
+    document: 'requests/{requestId}',
+    secrets: [gmailUser, gmailAppPassword],
+}, async (event) => {
+    const data = event.data?.data();
+    if (!data)
+        return;
+    const committee = data.committee;
+    const totalAmount = data.totalAmount;
+    const requestedBy = data.requestedBy;
+    const payee = data.payee;
+    // Find finance reviewers for this committee
+    const db = admin.firestore();
+    const reviewerRoles = committee === 'operations'
+        ? ['finance_ops', 'finance_prep', 'admin']
+        : ['finance_prep', 'admin'];
+    const usersSnapshot = await db.collection('users')
+        .where('role', 'in', reviewerRoles)
+        .get();
+    if (usersSnapshot.empty) {
+        console.log('No finance reviewers found for committee:', committee);
+        return;
+    }
+    const transporter = createTransporter();
+    const committeeLabel = COMMITTEE_LABELS[committee] || committee;
+    for (const userDoc of usersSnapshot.docs) {
+        const user = userDoc.data();
+        const email = user.email;
+        if (!email)
+            continue;
+        try {
+            await transporter.sendMail({
+                from: `지불/환불 시스템 <${gmailUser.value()}>`,
+                to: email,
+                subject: `[지불/환불] 새 신청서 검토 요청 (${committeeLabel})`,
+                html: `
+            <div style="font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
+              <h2 style="color: #2563eb; margin-bottom: 16px;">새 신청서가 접수되었습니다</h2>
+              <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                <tr><td style="padding: 8px 0; color: #6b7280;">위원회</td><td style="padding: 8px 0;">${committeeLabel}</td></tr>
+                <tr><td style="padding: 8px 0; color: #6b7280;">신청자</td><td style="padding: 8px 0;">${payee} (${requestedBy.name})</td></tr>
+                <tr><td style="padding: 8px 0; color: #6b7280;">신청 금액</td><td style="padding: 8px 0; font-weight: 600;">${formatCurrency(totalAmount)}</td></tr>
+              </table>
+              <p style="color: #6b7280; font-size: 14px;">앱에 접속하여 신청서를 검토해 주세요.</p>
+            </div>
+          `,
+            });
+            console.log(`New request notification sent to ${email}`);
+        }
+        catch (error) {
+            console.error(`Failed to send new request notification to ${email}:`, error);
+        }
+    }
+});
 function buildStatusChangeEmail(data, newStatus) {
     const totalAmount = data.totalAmount;
     const approvedBy = data.approvedBy;
@@ -223,29 +278,32 @@ function buildStatusChangeEmail(data, newStatus) {
       `,
         };
     }
+    if (newStatus === 'rejected') {
+        return {
+            subject: '[지불/환불] 신청서가 반려되었습니다',
+            html: `
+        <div style="font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
+          <h2 style="color: #dc2626; margin-bottom: 16px;">신청서가 반려되었습니다</h2>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+            <tr><td style="padding: 8px 0; color: #6b7280;">신청 금액</td><td style="padding: 8px 0; font-weight: 600;">${formatCurrency(totalAmount)}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280;">반려 사유</td><td style="padding: 8px 0; color: #dc2626;">${rejectionReason || '-'}</td></tr>
+          </table>
+          <p style="color: #6b7280; font-size: 14px;">반려 사유를 확인하시고 필요시 재신청해 주세요.</p>
+        </div>
+      `,
+        };
+    }
+    // force_rejected
     return {
-        subject: '[지불/환불] 신청서가 반려되었습니다',
+        subject: '[지불/환불] 승인된 신청서가 반려되었습니다',
         html: `
       <div style="font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
-        <h2 style="color: #dc2626; margin-bottom: 16px;">신청서가 반려되었습니다</h2>
+        <h2 style="color: #ea580c; margin-bottom: 16px;">승인된 신청서가 반려되었습니다</h2>
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
           <tr><td style="padding: 8px 0; color: #6b7280;">신청 금액</td><td style="padding: 8px 0; font-weight: 600;">${formatCurrency(totalAmount)}</td></tr>
-          <tr><td style="padding: 8px 0; color: #6b7280;">반려 사유</td><td style="padding: 8px 0; color: #dc2626;">${rejectionReason || '-'}</td></tr>
+          <tr><td style="padding: 8px 0; color: #6b7280;">반려 사유</td><td style="padding: 8px 0; color: #ea580c;">${rejectionReason || '-'}</td></tr>
         </table>
         <p style="color: #6b7280; font-size: 14px;">반려 사유를 확인하시고 필요시 재신청해 주세요.</p>
-      </div>
-    `,
-    };
-}
-function buildWeeklyDigestEmail(userName, pendingCount, committee) {
-    const committeeText = committee ? ` (${COMMITTEE_LABELS[committee] || committee})` : '';
-    return {
-        subject: `[지불/환불] 승인 대기중인 신청서 ${pendingCount}건`,
-        html: `
-      <div style="font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
-        <h2 style="color: #2563eb; margin-bottom: 16px;">승인 대기중인 신청서${committeeText}</h2>
-        <p style="margin-bottom: 16px;">${userName}님, 현재 <strong>${pendingCount}건</strong>의 신청서가 승인을 기다리고 있습니다.</p>
-        <p style="color: #6b7280; font-size: 14px;">앱에 접속하여 대기중인 신청서를 확인해 주세요.</p>
       </div>
     `,
     };
@@ -261,10 +319,56 @@ exports.onRequestStatusChange = (0, firestore_1.onDocumentUpdated)({
         return;
     const oldStatus = before.status;
     const newStatus = after.status;
-    // Only notify on pending → approved or pending → rejected
-    if (oldStatus !== 'pending')
+    const db = admin.firestore();
+    const transporter = createTransporter();
+    // 1) pending → reviewed: 해당 위원회 승인자에게 승인 요청 알림
+    if (oldStatus === 'pending' && newStatus === 'reviewed') {
+        const committee = after.committee;
+        const totalAmount = after.totalAmount;
+        const payee = after.payee;
+        const committeeLabel = COMMITTEE_LABELS[committee] || committee;
+        // 해당 위원회 승인자 조회
+        const approverRoles = committee === 'operations'
+            ? ['approver_ops', 'director', 'admin']
+            : ['approver_prep', 'director', 'admin'];
+        const usersSnapshot = await db.collection('users')
+            .where('role', 'in', approverRoles)
+            .get();
+        for (const userDoc of usersSnapshot.docs) {
+            const user = userDoc.data();
+            const email = user.email;
+            if (!email)
+                continue;
+            try {
+                await transporter.sendMail({
+                    from: `지불/환불 시스템 <${gmailUser.value()}>`,
+                    to: email,
+                    subject: `[지불/환불] 승인 요청 (${committeeLabel})`,
+                    html: `
+              <div style="font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
+                <h2 style="color: #16a34a; margin-bottom: 16px;">검토 완료 — 승인이 필요합니다</h2>
+                <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+                  <tr><td style="padding: 8px 0; color: #6b7280;">위원회</td><td style="padding: 8px 0;">${committeeLabel}</td></tr>
+                  <tr><td style="padding: 8px 0; color: #6b7280;">신청자</td><td style="padding: 8px 0;">${payee}</td></tr>
+                  <tr><td style="padding: 8px 0; color: #6b7280;">신청 금액</td><td style="padding: 8px 0; font-weight: 600;">${formatCurrency(totalAmount)}</td></tr>
+                </table>
+                <p style="color: #6b7280; font-size: 14px;">앱에 접속하여 신청서를 승인해 주세요.</p>
+              </div>
+            `,
+                });
+                console.log(`Approval request notification sent to ${email}`);
+            }
+            catch (error) {
+                console.error(`Failed to send approval notification to ${email}:`, error);
+            }
+        }
         return;
-    if (newStatus !== 'approved' && newStatus !== 'rejected')
+    }
+    // 2) 신청자에게 알림: reviewed→approved, pending|reviewed→rejected, approved→force_rejected
+    const shouldNotifyRequester = (oldStatus === 'reviewed' && newStatus === 'approved') ||
+        ((oldStatus === 'pending' || oldStatus === 'reviewed') && newStatus === 'rejected') ||
+        (oldStatus === 'approved' && newStatus === 'force_rejected');
+    if (!shouldNotifyRequester)
         return;
     const requestedBy = after.requestedBy;
     if (!requestedBy?.email) {
@@ -273,80 +377,125 @@ exports.onRequestStatusChange = (0, firestore_1.onDocumentUpdated)({
     }
     const { subject, html } = buildStatusChangeEmail(after, newStatus);
     try {
-        const transporter = createTransporter();
         await transporter.sendMail({
             from: `지불/환불 시스템 <${gmailUser.value()}>`,
             to: requestedBy.email,
             subject,
             html,
         });
-        console.log(`Status change email sent to ${requestedBy.email} (${newStatus})`);
+        console.log(`Status change email sent to ${requestedBy.email} (${oldStatus}→${newStatus})`);
     }
     catch (error) {
         console.error('Failed to send status change email:', error);
     }
 });
-// 매주 일요일 09:00 KST 승인 대기 알림
+function buildWeeklyDigestEmail(userName, sections) {
+    const totalCount = sections.reduce((sum, s) => sum + s.count, 0);
+    const sectionHtml = sections
+        .filter(s => s.count > 0)
+        .map(s => `<li>${s.label}: <strong>${s.count}건</strong></li>`)
+        .join('');
+    return {
+        subject: `[지불/환불] 처리 대기 ${totalCount}건`,
+        html: `
+      <div style="font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
+        <h2 style="color: #2563eb; margin-bottom: 16px;">주간 처리 현황</h2>
+        <p style="margin-bottom: 16px;">${userName}님, 처리가 필요한 건이 있습니다.</p>
+        <ul style="margin-bottom: 20px; padding-left: 20px;">${sectionHtml}</ul>
+        <p style="color: #6b7280; font-size: 14px;">앱에 접속하여 확인해 주세요.</p>
+      </div>
+    `,
+    };
+}
+// 매주 일요일 09:00 KST 처리 대기 알림
 exports.weeklyApproverDigest = (0, scheduler_1.onSchedule)({
     schedule: 'every sunday 00:00',
     timeZone: 'UTC',
     secrets: [gmailUser, gmailAppPassword],
 }, async () => {
     const db = admin.firestore();
-    // 승인 역할이 있는 활성 사용자 조회
-    const approverRoles = ['approver_ops', 'approver_prep', 'finance', 'director', 'admin'];
+    // 관련 역할 사용자 조회
+    const relevantRoles = ['finance_ops', 'finance_prep', 'approver_ops', 'approver_prep', 'director', 'admin'];
     const usersSnapshot = await db.collection('users')
-        .where('role', 'in', approverRoles)
+        .where('role', 'in', relevantRoles)
         .get();
     if (usersSnapshot.empty) {
-        console.log('No approver users found');
+        console.log('No relevant users found');
         return;
     }
-    // 활성 프로젝트의 대기중 신청서 조회
+    // pending 신청서 (검토 대상) - 위원회별 집계
     const pendingSnapshot = await db.collection('requests')
         .where('status', '==', 'pending')
         .get();
-    if (pendingSnapshot.empty) {
-        console.log('No pending requests found');
-        return;
-    }
-    // 위원회별 대기 건수 집계
-    let opsCount = 0;
-    let prepCount = 0;
+    let opsPendingCount = 0;
+    let prepPendingCount = 0;
     for (const doc of pendingSnapshot.docs) {
         const committee = doc.data().committee;
         if (committee === 'operations')
-            opsCount++;
+            opsPendingCount++;
         else if (committee === 'preparation')
-            prepCount++;
+            prepPendingCount++;
     }
-    const totalCount = pendingSnapshot.size;
+    // reviewed 신청서 (승인 대상) - 위원회별 집계
+    const reviewedSnapshot = await db.collection('requests')
+        .where('status', '==', 'reviewed')
+        .get();
+    let opsReviewedCount = 0;
+    let prepReviewedCount = 0;
+    for (const doc of reviewedSnapshot.docs) {
+        const committee = doc.data().committee;
+        if (committee === 'operations')
+            opsReviewedCount++;
+        else if (committee === 'preparation')
+            prepReviewedCount++;
+    }
+    const totalReviewedCount = reviewedSnapshot.size;
+    // approved 미정산 건수
+    const approvedSnapshot = await db.collection('requests')
+        .where('status', '==', 'approved')
+        .get();
+    let prepApprovedUnsettledCount = 0;
+    for (const doc of approvedSnapshot.docs) {
+        const committee = doc.data().committee;
+        if (committee === 'preparation')
+            prepApprovedUnsettledCount++;
+    }
+    const totalApprovedUnsettledCount = approvedSnapshot.size;
     const transporter = createTransporter();
     for (const userDoc of usersSnapshot.docs) {
         const user = userDoc.data();
         const role = user.role;
         const email = user.email;
-        const name = (user.name || user.displayName || '');
+        const name = (user.displayName || user.name || '');
         if (!email)
             continue;
-        // 역할별 조회 로직
-        let count = 0;
-        let committee;
-        if (role === 'approver_ops') {
-            count = opsCount;
-            committee = 'operations';
+        const sections = [];
+        if (role === 'finance_ops') {
+            // 운영위 재정: 운영위 검토 대상
+            sections.push({ label: '운영위 검토 대기', count: opsPendingCount });
+        }
+        else if (role === 'finance_prep') {
+            // 준비위 재정(총괄): 준비위 검토 대상 + 승인건 중 미정산
+            sections.push({ label: '준비위 검토 대기', count: prepPendingCount });
+            sections.push({ label: '승인 미정산', count: totalApprovedUnsettledCount });
+        }
+        else if (role === 'approver_ops') {
+            // 운영위 승인자: 운영위 승인 대기
+            sections.push({ label: '운영위 승인 대기', count: opsReviewedCount });
         }
         else if (role === 'approver_prep') {
-            count = prepCount;
-            committee = 'preparation';
+            // 준비위 승인자: 준비위 승인 대기
+            sections.push({ label: '준비위 승인 대기', count: prepReviewedCount });
         }
-        else {
-            // finance, director, admin → 전체
-            count = totalCount;
+        else if (role === 'director' || role === 'admin') {
+            // 위원장/관리자: 전체 승인 대기 + 미정산
+            sections.push({ label: '승인 대기', count: totalReviewedCount });
+            sections.push({ label: '승인 미정산', count: totalApprovedUnsettledCount });
         }
-        if (count === 0)
+        const totalCount = sections.reduce((sum, s) => sum + s.count, 0);
+        if (totalCount === 0)
             continue;
-        const { subject, html } = buildWeeklyDigestEmail(name, count, committee);
+        const { subject, html } = buildWeeklyDigestEmail(name, sections);
         try {
             await transporter.sendMail({
                 from: `지불/환불 시스템 <${gmailUser.value()}>`,
@@ -354,7 +503,7 @@ exports.weeklyApproverDigest = (0, scheduler_1.onSchedule)({
                 subject,
                 html,
             });
-            console.log(`Weekly digest sent to ${email}: ${count} pending`);
+            console.log(`Weekly digest sent to ${email}: ${totalCount} items`);
         }
         catch (error) {
             console.error(`Failed to send weekly digest to ${email}:`, error);

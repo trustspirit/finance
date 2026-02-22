@@ -16,7 +16,7 @@ export function useBudgetUsage(): BudgetUsage | null {
   if (totalBudget <= 0) return null
 
   const usedAmount = requests
-    .filter(r => r.status === 'approved' || r.status === 'settled')
+    .filter(r => r.status === 'reviewed' || r.status === 'approved' || r.status === 'settled')
     .reduce((sum, r) => sum + r.totalAmount, 0)
   const percent = Math.round((usedAmount / totalBudget) * 100)
   const warningThreshold = currentProject?.budgetWarningThreshold ?? 85

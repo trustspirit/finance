@@ -166,6 +166,8 @@ export default function ResubmitPage() {
         totalAmount: validItems.reduce((sum, item) => sum + item.amount, 0),
         receipts,
         requestedBy: { uid: user.uid, name: appUser.displayName || appUser.name, email: appUser.email },
+        reviewedBy: null,
+        reviewedAt: null,
         approvedBy: null,
         approvalSignature: null,
         approvedAt: null,
@@ -186,7 +188,7 @@ export default function ResubmitPage() {
 
   if (loading) return <Layout><Spinner /></Layout>
   if (!original) return <Layout><p className="text-gray-500">{t('detail.notFound')}</p></Layout>
-  if (original.status !== 'rejected' && original.status !== 'cancelled') return <Layout><p className="text-gray-500">{t('approval.rejectedOnly')}</p></Layout>
+  if (original.status !== 'rejected' && original.status !== 'cancelled' && original.status !== 'force_rejected') return <Layout><p className="text-gray-500">{t('approval.rejectedOnly')}</p></Layout>
   if (original.requestedBy.uid !== user?.uid) return <Layout><p className="text-gray-500">{t('detail.notFound')}</p></Layout>
 
   return (

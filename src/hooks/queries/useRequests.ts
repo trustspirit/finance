@@ -11,7 +11,6 @@ import {
   getDoc,
   doc,
   addDoc,
-  updateDoc,
   query,
   where,
   orderBy,
@@ -190,6 +189,41 @@ export function useCreateRequest() {
   });
 }
 
+/** Review a pending request (pending → reviewed) */
+export function useReviewRequest() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: {
+      requestId: string;
+      projectId: string;
+      reviewer: { uid: string; name: string; email: string };
+    }) => {
+      const ref = doc(db, "requests", params.requestId);
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(ref);
+        if (!snap.exists() || snap.data().status !== "pending") {
+          throw new Error("already_processed");
+        }
+        tx.update(ref, {
+          status: "reviewed",
+          reviewedBy: params.reviewer,
+          reviewedAt: serverTimestamp(),
+        });
+      });
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.requests.all(variables.projectId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.requests.detail(variables.requestId),
+      });
+    },
+  });
+}
+
+/** Approve a reviewed request (reviewed → approved) */
 export function useApproveRequest() {
   const queryClient = useQueryClient();
 
@@ -203,7 +237,7 @@ export function useApproveRequest() {
       const ref = doc(db, "requests", params.requestId);
       await runTransaction(db, async (tx) => {
         const snap = await tx.get(ref);
-        if (!snap.exists() || snap.data().status !== "pending") {
+        if (!snap.exists() || snap.data().status !== "reviewed") {
           throw new Error("already_processed");
         }
         tx.update(ref, {
@@ -225,6 +259,7 @@ export function useApproveRequest() {
   });
 }
 
+/** Reject a pending or reviewed request → rejected */
 export function useRejectRequest() {
   const queryClient = useQueryClient();
 
@@ -238,7 +273,9 @@ export function useRejectRequest() {
       const ref = doc(db, "requests", params.requestId);
       await runTransaction(db, async (tx) => {
         const snap = await tx.get(ref);
-        if (!snap.exists() || snap.data().status !== "pending") {
+        if (!snap.exists()) throw new Error("not_found");
+        const status = snap.data().status;
+        if (status !== "pending" && status !== "reviewed") {
           throw new Error("already_processed");
         }
         tx.update(ref, {
@@ -261,13 +298,52 @@ export function useRejectRequest() {
   });
 }
 
+/** Force-reject an approved request (approved → force_rejected) */
+export function useForceRejectRequest() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (params: {
+      requestId: string;
+      projectId: string;
+      approver: { uid: string; name: string; email: string };
+      rejectionReason: string;
+    }) => {
+      const ref = doc(db, "requests", params.requestId);
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(ref);
+        if (!snap.exists() || snap.data().status !== "approved") {
+          throw new Error("already_processed");
+        }
+        tx.update(ref, {
+          status: "force_rejected",
+          rejectionReason: params.rejectionReason,
+        });
+      });
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.requests.all(variables.projectId),
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.requests.detail(variables.requestId),
+      });
+    },
+  });
+}
+
 export function useCancelRequest() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (params: { requestId: string; projectId: string }) => {
-      await updateDoc(doc(db, "requests", params.requestId), {
-        status: "cancelled",
+      const ref = doc(db, "requests", params.requestId);
+      await runTransaction(db, async (tx) => {
+        const snap = await tx.get(ref);
+        if (!snap.exists() || snap.data().status !== "pending") {
+          throw new Error("already_processed");
+        }
+        tx.update(ref, { status: "cancelled" });
       });
     },
     onSuccess: (_data, variables) => {

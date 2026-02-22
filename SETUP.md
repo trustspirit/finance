@@ -48,44 +48,9 @@ VITE_FIREBASE_APP_ID=your-app-id
 1. Firebase Console > **Firestore Database** > **Create database**
 2. 위치: `asia-northeast3` (서울) 추천
 3. **Production mode**로 생성
-4. **Rules** 탭에서 다음 보안 규칙으로 교체:
-
-```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /users/{userId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth.uid == userId
-        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-    match /requests/{requestId} {
-      allow read: if request.auth != null;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'finance', 'approver_ops', 'approver_prep'];
-    }
-    match /settings/{docId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'finance'];
-    }
-    match /projects/{projectId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-    match /settlements/{docId} {
-      allow read: if request.auth != null
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'finance', 'approver_ops', 'approver_prep'];
-      allow write: if request.auth != null
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'finance', 'approver_ops', 'approver_prep'];
-    }
-  }
-}
-```
-
-5. **Publish** 클릭
+4. **Rules** 탭: 프로젝트 루트의 `firestore.rules` 파일 내용을 붙여넣기 후 **Publish** 클릭
+   - 3단계 승인 워크플로우에 맞는 상태 전환별 역할 제한이 적용됩니다.
+   - `firebase deploy --only firestore:rules` 명령으로도 배포할 수 있습니다.
 
 ### 복합 인덱스
 
@@ -178,6 +143,8 @@ npm run seed:clear
 | `npm run seed:clear` | Mock 데이터 삭제 |
 | `npm run migrate:projects` | 프로젝트 마이그레이션 (프로덕션) |
 | `npm run migrate:projects:emulator` | 프로젝트 마이그레이션 (에뮬레이터) |
+| `npm run migrate:three-step` | 3단계 워크플로우 마이그레이션 (프로덕션) |
+| `npm run migrate:three-step:emulator` | 3단계 워크플로우 마이그레이션 (에뮬레이터) |
 
 ## 7. 배포
 
@@ -237,16 +204,46 @@ firebase deploy --only functions
 
 ## 사용자 역할 체계
 
+3단계 승인 워크플로우: **신청 → 재정 검토 → 최종 승인 → 정산**
+
 | 역할 | 설명 | 권한 |
 |------|------|------|
 | `user` | 일반 사용자 | 신청서 작성/조회 |
-| `approver_ops` | 운영위원회 승인자 | 운영위 신청 승인/반려 |
-| `approver_prep` | 준비위원회 승인자 | 준비위 신청 승인/반려 |
-| `finance` | 재정 담당 | 모든 위원회 승인/반려, 정산, 영수증 관리, 대시보드/예산 설정, 사용자 관리 |
-| `director` | 위원장 | 모든 위원회 승인/반려, 대시보드, 고액 신청 승인 |
+| `finance_ops` | 운영위 재정 | 운영위 신청서 검토/반려 |
+| `approver_ops` | 운영위 승인자 | 운영위 검토완료 건 최종 승인/반려 |
+| `finance_prep` | 준비위 재정(총괄) | 모든 위원회 검토/반려, 정산, 승인건 반려, 영수증 관리, 대시보드/예산 설정, 사용자 관리 |
+| `approver_prep` | 준비위 승인자 | 준비위 검토완료 건 최종 승인/반려 |
+| `director` | 위원장 | 모든 위원회 최종 승인/반려, 대시보드, 고액 신청 승인 |
 | `admin` | 관리자 | 모든 권한 + 사용자 관리 + 프로젝트 관리 |
 
 역할별 권한 로직은 `src/lib/roles.ts`에서 관리합니다.
+
+### 상태 흐름
+
+```
+pending (대기중) → reviewed (검토완료) → approved (승인) → settled (정산완료)
+         ↘ rejected (반려)     ↘ rejected      ↘ force_rejected (반려)
+         ↘ cancelled (취소)
+```
+
+### 데이터 마이그레이션 (2단계→3단계 전환 시)
+
+기존 2단계 워크플로우에서 3단계로 전환할 때 1회 실행이 필요합니다.
+
+```bash
+# 프로덕션
+GOOGLE_APPLICATION_CREDENTIALS=path/to/service-account.json npm run migrate:three-step
+
+# 에뮬레이터
+npm run migrate:three-step:emulator
+```
+
+마이그레이션 내용:
+- 기존 `finance` 역할 사용자 → `finance_prep`으로 변경
+- 기존 신청서에 `reviewedBy`/`reviewedAt` 필드 추가 (null 초기화)
+- 이미 승인/정산된 건: `approvedBy` 정보를 `reviewedBy`로 복사
+
+> 멱등성 보장: 여러 번 실행해도 안전합니다.
 
 ---
 
@@ -342,7 +339,7 @@ finanace/
 │   └── types/               # TypeScript 타입
 │       └── index.ts           # 역할, 위원회, 신청서, 정산, 프로젝트 타입 정의
 ├── functions/               # Cloud Functions (2nd Gen)
-│   └── src/index.ts           # uploadReceiptsV2, uploadBankBookV2, downloadFileV2, cleanupDeletedProjects
+│   └── src/index.ts           # uploadReceiptsV2, uploadBankBookV2, downloadFileV2, cleanupDeletedProjects, onRequestCreated, onRequestStatusChange, weeklyApproverDigest, migrateToThreeStepWorkflow
 ├── scripts/                 # 유틸리티 스크립트
 │   ├── seed.ts                # Mock 데이터 생성
 │   ├── clear.ts               # Mock 데이터 삭제

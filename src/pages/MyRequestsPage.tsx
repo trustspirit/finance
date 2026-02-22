@@ -85,7 +85,7 @@ export default function MyRequestsPage() {
                             {t('approval.cancelRequest')}
                           </button>
                         )}
-                        {req.status === 'cancelled' && (
+                        {(req.status === 'cancelled' || req.status === 'rejected' || req.status === 'force_rejected') && (
                           <Link to={`/request/resubmit/${req.id}`} onClick={(e) => e.stopPropagation()}
                             className="text-xs text-blue-600 hover:underline">
                             {t('approval.resubmit')}
@@ -119,7 +119,7 @@ export default function MyRequestsPage() {
                     {t('approval.cancelRequest')}
                   </button>
                 )}
-                {req.status === 'cancelled' && (
+                {(req.status === 'cancelled' || req.status === 'rejected' || req.status === 'force_rejected') && (
                   <Link to={`/request/resubmit/${req.id}`} onClick={(e) => e.stopPropagation()}
                     className="mt-2 inline-block text-xs text-blue-600 hover:underline">
                     {t('approval.resubmit')}

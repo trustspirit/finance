@@ -144,3 +144,49 @@ export function RejectionModal({ open, onClose, onConfirm, isPending }: Rejectio
     </Modal>
   )
 }
+
+interface ForceRejectionModalProps {
+  open: boolean
+  onClose: () => void
+  onConfirm: (reason: string) => void
+  isPending: boolean
+}
+
+export function ForceRejectionModal({ open, onClose, onConfirm, isPending }: ForceRejectionModalProps) {
+  const { t } = useTranslation()
+  const [reason, setReason] = useState('')
+
+  return (
+    <Modal
+      open={open}
+      onClose={() => { if (!isPending) onClose() }}
+      title={t('approval.forceRejectTitle')}
+    >
+      <p className="text-sm text-gray-500 mb-4">{t('approval.forceRejectDescription')}</p>
+      <textarea
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+        rows={4}
+        placeholder={t('approval.forceRejectPlaceholder')}
+        className="w-full border border-gray-300 rounded px-3 py-2 text-sm mb-4"
+        autoFocus
+      />
+      <div className="flex gap-3 justify-end">
+        <button
+          onClick={onClose}
+          disabled={isPending}
+          className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-50 disabled:text-gray-400"
+        >
+          {t('common.cancel')}
+        </button>
+        <button
+          onClick={() => onConfirm(reason)}
+          disabled={!reason.trim() || isPending}
+          className="px-4 py-2 text-sm text-white bg-orange-600 rounded hover:bg-orange-700 disabled:bg-gray-400"
+        >
+          {isPending ? t('common.submitting') : t('approval.forceReject')}
+        </button>
+      </div>
+    </Modal>
+  )
+}

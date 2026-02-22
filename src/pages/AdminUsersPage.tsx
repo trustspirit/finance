@@ -120,9 +120,10 @@ export default function AdminUsersPage() {
 
   const ROLE_LABELS: Record<UserRole, string> = {
     user: t('role.user'),
+    finance_ops: t('role.finance_ops'),
     approver_ops: t('role.approver_ops'),
+    finance_prep: t('role.finance_prep'),
     approver_prep: t('role.approver_prep'),
-    finance: t('role.finance'),
     director: t('role.director'),
     admin: t('role.admin'),
   }
@@ -195,9 +196,10 @@ export default function AdminUsersPage() {
                             onChange={(e) => handleRoleChange(u.uid, e.target.value as UserRole)}
                           >
                             <option value="user">{t('role.user')}</option>
+                            <option value="finance_ops">{t('role.finance_ops')}</option>
                             <option value="approver_ops">{t('role.approver_ops')}</option>
+                            <option value="finance_prep">{t('role.finance_prep')}</option>
                             <option value="approver_prep">{t('role.approver_prep')}</option>
-                            <option value="finance">{t('role.finance')}</option>
                             <option value="director">{t('role.director')}</option>
                             <option value="admin">{t('role.admin')}</option>
                           </Select>
@@ -238,9 +240,10 @@ export default function AdminUsersPage() {
                       selectClassName="w-full"
                     >
                       <option value="user">{t('role.user')}</option>
+                      <option value="finance_ops">{t('role.finance_ops')}</option>
                       <option value="approver_ops">{t('role.approver_ops')}</option>
+                      <option value="finance_prep">{t('role.finance_prep')}</option>
                       <option value="approver_prep">{t('role.approver_prep')}</option>
-                      <option value="finance">{t('role.finance')}</option>
                       <option value="director">{t('role.director')}</option>
                       <option value="admin">{t('role.admin')}</option>
                     </Select>

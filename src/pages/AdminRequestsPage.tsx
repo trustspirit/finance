@@ -17,13 +17,16 @@ import Tooltip from "../components/Tooltip";
 import { useTranslation } from "react-i18next";
 import Select from "../components/Select";
 import {
-  canApproveCommittee,
-  canApproveRequest,
+  canReviewCommittee,
+  canFinalApproveCommittee,
+  canFinalApproveRequest,
+  canSeeCommitteeRequests,
   DEFAULT_APPROVAL_THRESHOLD,
 } from "../lib/roles";
 
 import {
   useInfiniteRequests,
+  useReviewRequest,
   useApproveRequest,
   useRejectRequest,
 } from "../hooks/queries/useRequests";
@@ -66,6 +69,9 @@ export default function AdminRequestsPage() {
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
+  const isReviewer = canReviewCommittee(role, "operations") || canReviewCommittee(role, "preparation");
+  const isFinalApprover = canFinalApproveCommittee(role, "operations") || canFinalApproveCommittee(role, "preparation");
+
   const firestoreStatus = filter === "all" ? undefined : filter;
   const sortParam = useMemo(
     () => ({ field: sortKey, dir: sortDir }),
@@ -81,27 +87,42 @@ export default function AdminRequestsPage() {
     fetchNextPage,
   } = useInfiniteRequests(currentProject?.id, firestoreStatus, sortParam);
 
+  const reviewMutation = useReviewRequest();
   const approveMutation = useApproveRequest();
   const rejectMutation = useRejectRequest();
-  const [signModalRequestId, setSignModalRequestId] = useState<string | null>(
-    null,
-  );
-  const [rejectModalRequestId, setRejectModalRequestId] = useState<
-    string | null
-  >(null);
+  const [signModalRequestId, setSignModalRequestId] = useState<string | null>(null);
+  const [rejectModalRequestId, setRejectModalRequestId] = useState<string | null>(null);
 
   const allRequests = useMemo(
     () => data?.pages.flatMap((p) => p.items) ?? [],
     [data],
   );
 
-  // Fetch the requester's user data for bank book preview in approval modal
   const signModalRequest = allRequests.find((r) => r.id === signModalRequestId);
   const { data: requester } = useUser(signModalRequest?.requestedBy.uid);
 
   const threshold =
     currentProject?.directorApprovalThreshold ?? DEFAULT_APPROVAL_THRESHOLD;
 
+  // Review handler (pending → reviewed)
+  const handleReview = (requestId: string) => {
+    const req = allRequests.find((r) => r.id === requestId);
+    if (!req) return;
+    if (req.requestedBy.uid === user?.uid) {
+      alert(t("approval.selfApproveError"));
+      return;
+    }
+    if (!canReviewCommittee(role, req.committee)) return;
+    if (!user || !appUser) return;
+    const reviewerName = appUser.displayName || appUser.name;
+    reviewMutation.mutate({
+      requestId,
+      projectId: currentProject!.id,
+      reviewer: { uid: user.uid, name: reviewerName, email: appUser.email },
+    });
+  };
+
+  // Final approve handler (reviewed → approved)
   const handleApproveWithSign = (requestId: string) => {
     const req = allRequests.find((r) => r.id === requestId);
     if (!req) return;
@@ -109,7 +130,7 @@ export default function AdminRequestsPage() {
       alert(t("approval.selfApproveError"));
       return;
     }
-    if (!canApproveRequest(role, req.committee, req.totalAmount, threshold)) {
+    if (!canFinalApproveRequest(role, req.committee, req.totalAmount, threshold)) {
       if (req.totalAmount > threshold) {
         alert(t("approval.directorRequired"));
       }
@@ -120,9 +141,7 @@ export default function AdminRequestsPage() {
 
   const handleApproveConfirm = (signatureData: string) => {
     if (!user || !appUser || !signModalRequestId) return;
-
     const approverName = appUser.displayName || appUser.name;
-
     approveMutation.mutate(
       {
         requestId: signModalRequestId,
@@ -130,9 +149,7 @@ export default function AdminRequestsPage() {
         approver: { uid: user.uid, name: approverName, email: appUser.email },
         signature: signatureData,
       },
-      {
-        onSuccess: () => setSignModalRequestId(null),
-      },
+      { onSuccess: () => setSignModalRequestId(null) },
     );
   };
 
@@ -143,20 +160,15 @@ export default function AdminRequestsPage() {
       alert(t("approval.selfRejectError"));
       return;
     }
-    if (!canApproveRequest(role, req.committee, req.totalAmount, threshold)) {
-      if (req.totalAmount > threshold) {
-        alert(t("approval.directorRequired"));
-      }
-      return;
-    }
+    // Reviewer can reject pending, final approver can reject reviewed
+    if (req.status === "pending" && !canReviewCommittee(role, req.committee)) return;
+    if (req.status === "reviewed" && !canFinalApproveCommittee(role, req.committee)) return;
     setRejectModalRequestId(requestId);
   };
 
   const handleRejectConfirm = (reason: string) => {
     if (!user || !appUser || !rejectModalRequestId) return;
-
     const approverName = appUser.displayName || appUser.name;
-
     rejectMutation.mutate(
       {
         requestId: rejectModalRequestId,
@@ -164,22 +176,19 @@ export default function AdminRequestsPage() {
         approver: { uid: user.uid, name: approverName, email: appUser.email },
         rejectionReason: reason,
       },
-      {
-        onSuccess: () => setRejectModalRequestId(null),
-      },
+      { onSuccess: () => setRejectModalRequestId(null) },
     );
   };
 
   const budgetUsage = useBudgetUsage();
 
-  // Filter by committee access, exclude cancelled (for 'all' tab)
   const accessible = useMemo(() => {
     return filter === "all"
       ? allRequests.filter(
           (r) =>
-            canApproveCommittee(role, r.committee) && r.status !== "cancelled",
+            canSeeCommitteeRequests(role, r.committee) && r.status !== "cancelled",
         )
-      : allRequests.filter((r) => canApproveCommittee(role, r.committee));
+      : allRequests.filter((r) => canSeeCommitteeRequests(role, r.committee));
   }, [allRequests, filter, role]);
 
   const handleSort = (key: SortKey) => {
@@ -193,22 +202,109 @@ export default function AdminRequestsPage() {
 
   const bankBookUrl = requester?.bankBookUrl || requester?.bankBookDriveUrl;
 
+  const filterTabs = ["all", "pending", "reviewed", "approved", "settled", "rejected", "force_rejected"] as const;
+
+  // Determine what action buttons to show for a request
+  const renderActions = (req: typeof allRequests[0]) => {
+    // pending → reviewer can "검토완료" / "반려"
+    if (req.status === "pending" && isReviewer && canReviewCommittee(role, req.committee)) {
+      return (
+        <div className="flex gap-1 justify-center">
+          <button
+            onClick={() => handleReview(req.id)}
+            disabled={reviewMutation.isPending}
+            className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:bg-gray-400"
+          >
+            {t("approval.review")}
+          </button>
+          <button
+            onClick={() => handleRejectOpen(req.id)}
+            className="px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+          >
+            {t("approval.reject")}
+          </button>
+        </div>
+      );
+    }
+    // reviewed → final approver can "승인" / "반려"
+    if (req.status === "reviewed" && isFinalApprover && canFinalApproveRequest(role, req.committee, req.totalAmount, threshold)) {
+      return (
+        <div className="flex gap-1 justify-center">
+          <button
+            onClick={() => handleApproveWithSign(req.id)}
+            className="px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+          >
+            {t("approval.approve")}
+          </button>
+          <button
+            onClick={() => handleRejectOpen(req.id)}
+            className="px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+          >
+            {t("approval.reject")}
+          </button>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  // Remarks column content
+  const renderRemarks = (req: typeof allRequests[0]) => {
+    const parts: React.ReactNode[] = [];
+
+    // Resubmission badge
+    if (req.originalRequestId) {
+      parts.push(
+        <Link key="resub" to={`/request/${req.originalRequestId}`}
+          className="inline-block px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] font-medium hover:bg-amber-200"
+          onClick={(e) => e.stopPropagation()}>
+          {t("approval.resubmitted")}
+        </Link>
+      );
+    }
+
+    if (req.reviewedBy && (req.status === "reviewed" || req.status === "approved" || req.status === "settled")) {
+      parts.push(
+        <Tooltip key="reviewed" text={`${t("approval.reviewedBy")}: ${req.reviewedBy.name}`} maxWidth="160px" />
+      );
+    }
+    if (req.approvedBy && (req.status === "approved" || req.status === "rejected" || req.status === "settled")) {
+      parts.push(
+        <Tooltip key="approved" text={
+          req.status === "rejected" && req.rejectionReason
+            ? `${req.approvedBy.name}: ${req.rejectionReason}`
+            : req.approvedBy.name
+        } maxWidth="160px" />
+      );
+    }
+    if (req.status === "force_rejected" && req.rejectionReason) {
+      parts.push(
+        <Tooltip key="force" text={req.rejectionReason} maxWidth="160px" className="text-orange-600" />
+      );
+    }
+    if ((req.status === "reviewed" || req.status === "pending") && req.totalAmount > threshold) {
+      parts.push(
+        <Tooltip key="director" text={t("approval.directorRequired")} maxWidth="160px" className="text-orange-600" />
+      );
+    }
+
+    return parts.length > 0 ? <div className="flex flex-wrap items-center gap-1">{parts}</div> : null;
+  };
+
   return (
     <Layout>
       <PageHeader title={t("nav.adminRequests")} />
 
       <div className="flex flex-wrap gap-2 mb-6">
-        {(["all", "pending", "approved", "settled", "rejected"] as const).map(
-          (f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-3 py-1 rounded text-sm ${filter === f ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600"}`}
-            >
-              {t(`status.${f}`, f)}
-            </button>
-          ),
-        )}
+        {filterTabs.map((f) => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className={`px-3 py-1 rounded text-sm ${filter === f ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600"}`}
+          >
+            {t(`status.${f}`, f)}
+          </button>
+        ))}
       </div>
 
       {isLoading ? (
@@ -270,43 +366,10 @@ export default function AdminRequestsPage() {
                           <StatusBadge status={req.status} />
                         </td>
                         <td className="px-4 py-3 text-xs text-gray-500">
-                          {req.approvedBy &&
-                            (req.status === "approved" ||
-                              req.status === "rejected") && (
-                              <Tooltip text={
-                                req.status === "rejected" && req.rejectionReason
-                                  ? `${req.approvedBy.name}: ${req.rejectionReason}`
-                                  : req.approvedBy.name
-                              } maxWidth="160px" />
-                            )}
-                          {req.status === "pending" &&
-                            req.totalAmount > threshold && (
-                              <Tooltip text={t("approval.directorRequired")} maxWidth="160px" className="text-orange-600" />
-                            )}
+                          {renderRemarks(req)}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          {req.status === "pending" &&
-                            canApproveRequest(
-                              role,
-                              req.committee,
-                              req.totalAmount,
-                              threshold,
-                            ) && (
-                              <div className="flex gap-1 justify-center">
-                                <button
-                                  onClick={() => handleApproveWithSign(req.id)}
-                                  className="px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700"
-                                >
-                                  {t("approval.approve")}
-                                </button>
-                                <button
-                                  onClick={() => handleRejectOpen(req.id)}
-                                  className="px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700"
-                                >
-                                  {t("approval.reject")}
-                                </button>
-                              </div>
-                            )}
+                          {renderActions(req)}
                         </td>
                       </tr>
                     ))}
@@ -322,10 +385,7 @@ export default function AdminRequestsPage() {
               <Select
                 value={`${sortKey}-${sortDir}`}
                 onChange={(e) => {
-                  const [k, d] = e.target.value.split("-") as [
-                    SortKey,
-                    SortDir,
-                  ];
+                  const [k, d] = e.target.value.split("-") as [SortKey, SortDir];
                   setSortKey(k);
                   setSortDir(d);
                 }}
@@ -335,12 +395,8 @@ export default function AdminRequestsPage() {
                 <option value="date-asc">{t("field.date")} ↑</option>
                 <option value="payee-asc">{t("field.payee")} ↑</option>
                 <option value="payee-desc">{t("field.payee")} ↓</option>
-                <option value="totalAmount-desc">
-                  {t("field.totalAmount")} ↓
-                </option>
-                <option value="totalAmount-asc">
-                  {t("field.totalAmount")} ↑
-                </option>
+                <option value="totalAmount-desc">{t("field.totalAmount")} ↓</option>
+                <option value="totalAmount-asc">{t("field.totalAmount")} ↑</option>
                 <option value="status-asc">{t("status.label")} ↑</option>
                 <option value="status-desc">{t("status.label")} ↓</option>
               </Select>
@@ -354,9 +410,7 @@ export default function AdminRequestsPage() {
                   className="block bg-white rounded-lg shadow p-4"
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-gray-900">
-                      {req.payee}
-                    </span>
+                    <span className="font-medium text-gray-900">{req.payee}</span>
                     <StatusBadge status={req.status} />
                   </div>
                   <div className="flex items-center justify-between text-sm text-gray-500 mb-1">
@@ -366,38 +420,42 @@ export default function AdminRequestsPage() {
                   <div className="text-right font-semibold text-gray-900 mb-3">
                     ₩{req.totalAmount.toLocaleString()}
                   </div>
-                  {req.status === "pending" &&
-                    canApproveRequest(
-                      role,
-                      req.committee,
-                      req.totalAmount,
-                      threshold,
-                    ) && (
-                      <div
-                        className="flex gap-2"
-                        onClick={(e) => e.preventDefault()}
+                  {/* Mobile action buttons */}
+                  {req.status === "pending" && isReviewer && canReviewCommittee(role, req.committee) && (
+                    <div className="flex gap-2" onClick={(e) => e.preventDefault()}>
+                      <button
+                        onClick={() => handleReview(req.id)}
+                        disabled={reviewMutation.isPending}
+                        className="flex-1 px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:bg-gray-400"
                       >
-                        <button
-                          onClick={() => handleApproveWithSign(req.id)}
-                          className="flex-1 px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700"
-                        >
-                          {t("approval.approve")}
-                        </button>
-                        <button
-                          onClick={() => handleRejectOpen(req.id)}
-                          className="flex-1 px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700"
-                        >
-                          {t("approval.reject")}
-                        </button>
-                      </div>
-                    )}
-                  {req.status === "pending" &&
-                    !canApproveRequest(
-                      role,
-                      req.committee,
-                      req.totalAmount,
-                      threshold,
-                    ) &&
+                        {t("approval.review")}
+                      </button>
+                      <button
+                        onClick={() => handleRejectOpen(req.id)}
+                        className="flex-1 px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+                      >
+                        {t("approval.reject")}
+                      </button>
+                    </div>
+                  )}
+                  {req.status === "reviewed" && isFinalApprover && canFinalApproveRequest(role, req.committee, req.totalAmount, threshold) && (
+                    <div className="flex gap-2" onClick={(e) => e.preventDefault()}>
+                      <button
+                        onClick={() => handleApproveWithSign(req.id)}
+                        className="flex-1 px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700"
+                      >
+                        {t("approval.approve")}
+                      </button>
+                      <button
+                        onClick={() => handleRejectOpen(req.id)}
+                        className="flex-1 px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+                      >
+                        {t("approval.reject")}
+                      </button>
+                    </div>
+                  )}
+                  {req.status === "reviewed" &&
+                    !canFinalApproveRequest(role, req.committee, req.totalAmount, threshold) &&
                     req.totalAmount > threshold && (
                       <p className="text-xs text-orange-600 mt-1">
                         {t("approval.directorRequired")}

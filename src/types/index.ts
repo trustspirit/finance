@@ -1,4 +1,4 @@
-export type UserRole = 'user' | 'approver_ops' | 'approver_prep' | 'finance' | 'director' | 'admin'
+export type UserRole = 'user' | 'finance_ops' | 'approver_ops' | 'finance_prep' | 'approver_prep' | 'director' | 'admin'
 
 export interface ProjectBudgetConfig {
   totalBudget: number
@@ -47,7 +47,7 @@ export interface AppUser {
 
 export type Committee = 'operations' | 'preparation'
 
-export type RequestStatus = 'pending' | 'approved' | 'rejected' | 'settled' | 'cancelled'
+export type RequestStatus = 'pending' | 'reviewed' | 'approved' | 'rejected' | 'settled' | 'cancelled' | 'force_rejected'
 
 export interface RequestItem {
   description: string
@@ -81,6 +81,8 @@ export interface PaymentRequest {
   totalAmount: number
   receipts: Receipt[]
   requestedBy: { uid: string; name: string; email: string }
+  reviewedBy: { uid: string; name: string; email: string } | null
+  reviewedAt: Date | null
   approvedBy: { uid: string; name: string; email: string } | null
   approvalSignature: string | null
   approvedAt: Date | null

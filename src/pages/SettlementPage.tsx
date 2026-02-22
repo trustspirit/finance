@@ -6,13 +6,14 @@ import { db } from '../lib/firebase'
 import { useAuth } from '../contexts/AuthContext'
 import { useProject } from '../contexts/ProjectContext'
 import { PaymentRequest, AppUser } from '../types'
-import { canApproveCommittee } from '../lib/roles'
-import { useApprovedRequests } from '../hooks/queries/useRequests'
+import { canSeeCommitteeRequests, canForceReject } from '../lib/roles'
+import { useApprovedRequests, useForceRejectRequest } from '../hooks/queries/useRequests'
 import { useCreateSettlement } from '../hooks/queries/useSettlements'
 import { useBudgetUsage } from '../hooks/useBudgetUsage'
 import Layout from '../components/Layout'
 import Spinner from '../components/Spinner'
 import BudgetWarningBanner from '../components/BudgetWarningBanner'
+import { ForceRejectionModal } from '../components/AdminRequestModals'
 
 export default function SettlementPage() {
   const { t } = useTranslation()
@@ -23,20 +24,22 @@ export default function SettlementPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [processing, setProcessing] = useState(false)
   const [lastClickedIndex, setLastClickedIndex] = useState<number | null>(null)
+  const [forceRejectRequestId, setForceRejectRequestId] = useState<string | null>(null)
 
   const { data: allRequests = [], isLoading: loading } = useApprovedRequests(currentProject?.id)
   const createSettlementMutation = useCreateSettlement()
+  const forceRejectMutation = useForceRejectRequest()
   const budgetUsage = useBudgetUsage()
 
-  // Role-based filtering stays client-side:
+  const showForceReject = canForceReject(role)
+
   const requests = useMemo(
-    () => allRequests.filter(r => canApproveCommittee(role, r.committee)),
+    () => allRequests.filter(r => canSeeCommitteeRequests(role, r.committee)),
     [allRequests, role]
   )
 
   const handleRowClick = useCallback((id: string, index: number, e: React.MouseEvent) => {
     if (e.shiftKey && lastClickedIndex !== null) {
-      // Shift-click: select range
       const start = Math.min(lastClickedIndex, index)
       const end = Math.max(lastClickedIndex, index)
       setSelected((prev) => {
@@ -47,7 +50,6 @@ export default function SettlementPage() {
         return next
       })
     } else {
-      // Normal click: toggle single
       setSelected((prev) => {
         const next = new Set(prev)
         if (next.has(id)) next.delete(id)
@@ -68,13 +70,26 @@ export default function SettlementPage() {
 
   const selectedRequests = requests.filter((r) => selected.has(r.id))
 
-  // Group by payee + committee + session (prevents mixing different committees/sessions)
   const groupedByPayee = selectedRequests.reduce<Record<string, PaymentRequest[]>>((acc, req) => {
     const key = `${req.requestedBy.uid}|${req.bankName}|${req.bankAccount}|${req.committee}|${req.session}`
     if (!acc[key]) acc[key] = []
     acc[key].push(req)
     return acc
   }, {})
+
+  const handleForceRejectConfirm = (reason: string) => {
+    if (!user || !appUser || !forceRejectRequestId) return
+    const approverName = appUser.displayName || appUser.name
+    forceRejectMutation.mutate(
+      {
+        requestId: forceRejectRequestId,
+        projectId: currentProject!.id,
+        approver: { uid: user.uid, name: approverName, email: appUser.email },
+        rejectionReason: reason,
+      },
+      { onSuccess: () => setForceRejectRequestId(null) },
+    )
+  }
 
   const handleSettle = async () => {
     if (!user || !appUser || !currentProject || selected.size === 0) return
@@ -85,7 +100,6 @@ export default function SettlementPage() {
     try {
       const creatorName = appUser.displayName || appUser.name
 
-      // Validate all selected have approval signature
       const missingApproval = selectedRequests.find((r) => !r.approvalSignature || !r.approvedBy)
       if (missingApproval) {
         alert(t('settlement.settleFailed') + ': ' + missingApproval.payee + ' - missing approval signature')
@@ -93,7 +107,6 @@ export default function SettlementPage() {
         return
       }
 
-      // Check batch size limit (Firestore max: 500 operations per batch)
       const totalOps = Object.values(groupedByPayee).reduce((sum, reqs) => sum + 1 + reqs.length, 0)
       if (totalOps >= 500) {
         alert(t('settlement.settleFailed') + ': Too many operations. Please select fewer requests.')
@@ -101,7 +114,6 @@ export default function SettlementPage() {
         return
       }
 
-      // Fetch requester signatures for each group
       const requesterUids = [...new Set(Object.values(groupedByPayee).map(reqs => reqs[0].requestedBy.uid))]
       const signatureMap = new Map<string, string | null>()
       await Promise.all(
@@ -195,6 +207,9 @@ export default function SettlementPage() {
                 <th className="text-left px-4 py-3 font-medium text-gray-600">{t('field.committee')}</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">{t('field.items')}</th>
                 <th className="text-right px-4 py-3 font-medium text-gray-600">{t('field.totalAmount')}</th>
+                {showForceReject && (
+                  <th className="text-center px-4 py-3 font-medium text-gray-600"></th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -212,6 +227,16 @@ export default function SettlementPage() {
                   <td className="px-4 py-3">{req.committee === 'operations' ? t('committee.operationsShort') : t('committee.preparationShort')}</td>
                   <td className="px-4 py-3">{t('form.itemCount', { count: req.items.length })}</td>
                   <td className="px-4 py-3 text-right">₩{req.totalAmount.toLocaleString()}</td>
+                  {showForceReject && (
+                    <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                      <button
+                        onClick={() => setForceRejectRequestId(req.id)}
+                        className="px-2 py-1 text-xs text-orange-600 border border-orange-300 rounded hover:bg-orange-50"
+                      >
+                        {t('approval.reject')}
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -221,6 +246,14 @@ export default function SettlementPage() {
           </div>
         </div>
       )}
+
+      <ForceRejectionModal
+        key={forceRejectRequestId ?? ""}
+        open={!!forceRejectRequestId}
+        onClose={() => setForceRejectRequestId(null)}
+        onConfirm={handleForceRejectConfirm}
+        isPending={forceRejectMutation.isPending}
+      />
     </Layout>
   )
 }

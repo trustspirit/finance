@@ -21,6 +21,7 @@ export default function RequestDetailPage() {
   const cancelMutation = useCancelRequest()
   const { data: request, isLoading: requestLoading } = useRequest(id)
   const { data: requester, isLoading: requesterLoading } = useUser(request?.requestedBy.uid)
+  const { data: originalRequest } = useRequest(request?.originalRequestId ?? undefined)
   const loading = requestLoading || requesterLoading
 
   if (loading) return <Layout><Spinner /></Layout>
@@ -37,6 +38,25 @@ export default function RequestDetailPage() {
           </div>
           <StatusBadge status={request.status} />
         </div>
+
+        {request.originalRequestId && originalRequest && (
+          <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="inline-block px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-xs font-medium">
+                {t('approval.resubmitted')}
+              </span>
+              <Link to={`/request/${request.originalRequestId}`} className="text-xs text-blue-600 hover:underline">
+                {t('approval.originalRequest')}
+              </Link>
+            </div>
+            {originalRequest.rejectionReason && (
+              <p className="text-sm text-amber-800">
+                <span className="font-medium">{t('approval.originalRejectionReason')}: </span>
+                {originalRequest.rejectionReason}
+              </p>
+            )}
+          </div>
+        )}
 
         <InfoGrid className="mb-6" items={[
           { label: t('field.payee'), value: request.payee },
@@ -82,7 +102,14 @@ export default function RequestDetailPage() {
           </div>
         )}
 
-        {(request.status === 'rejected' || request.status === 'cancelled') && user?.uid === request.requestedBy.uid && (
+        {request.status === 'force_rejected' && request.rejectionReason && (
+          <div className="mb-6 bg-orange-50 border border-orange-200 rounded-lg p-4">
+            <h3 className="text-sm font-medium text-orange-800 mb-1">{t('approval.rejectionReason')}</h3>
+            <p className="text-sm text-orange-700">{request.rejectionReason}</p>
+          </div>
+        )}
+
+        {(request.status === 'rejected' || request.status === 'cancelled' || request.status === 'force_rejected') && user?.uid === request.requestedBy.uid && (
           <div className="mb-6">
             <button onClick={() => navigate(`/request/resubmit/${request.id}`)}
               className="bg-blue-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-blue-700">
@@ -109,6 +136,7 @@ export default function RequestDetailPage() {
 
         <InfoGrid className="border-t pt-4" items={[
           { label: t('field.requestedBy'), value: `${request.requestedBy.name} (${request.requestedBy.email})` },
+          ...(request.reviewedBy ? [{ label: t('approval.reviewedBy'), value: `${request.reviewedBy.name} (${request.reviewedBy.email})` }] : []),
           { label: t('field.approvedBy'), value: request.approvedBy ? `${request.approvedBy.name} (${request.approvedBy.email})` : '-' },
         ]} />
 
