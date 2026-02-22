@@ -29,7 +29,7 @@ export default function TabbedCharts({
   const [tab, setTab] = useState<ChartTab>("monthly");
 
   const tabs: { key: ChartTab; label: string }[] = [
-    { key: "monthly", label: t("dashboard.monthlyTrend") },
+    { key: "monthly", label: t("dashboard.requestTrend") },
     { key: "committee", label: t("dashboard.byCommittee") },
     { key: "budgetCode", label: t("dashboard.byBudgetCode") },
   ];

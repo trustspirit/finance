@@ -53,7 +53,9 @@
     "approver_ops": "운영위 승인자",
     "finance_prep": "준비위 재정(총괄)",
     "approver_prep": "준비위 승인자",
-    "director": "위원장",
+    "session_director": "운영 위원장",
+    "logistic_admin": "준비 위원장",
+    "executive": "대회장",
     "admin": "관리자"
   },
   "status": {
@@ -66,6 +68,14 @@
     "settled": "정산완료",
     "cancelled": "취소",
     "force_rejected": "반려"
+  },
+  "statusStep": {
+    "submitted": "신청",
+    "review": "검토",
+    "approval": "승인",
+    "settlement": "정산",
+    "rejected": "반려",
+    "cancelled": "취소"
   },
   "committee": {
     "operations": "운영 위원회",
@@ -146,6 +156,7 @@
     "rejectTitle": "반려 사유",
     "rejectDescription": "반려 사유를 입력해주세요. 신청자가 확인할 수 있습니다.",
     "rejectPlaceholder": "반려 사유를 입력하세요...",
+    "selfReviewError": "본인이 신청한 건은 검토할 수 없습니다.",
     "selfApproveError": "본인이 신청한 건은 승인할 수 없습니다.",
     "selfRejectError": "본인이 신청한 건은 반려할 수 없습니다.",
     "review": "검토완료",
@@ -168,7 +179,8 @@
     "rejectedOnly": "반려된 신청서만 재신청할 수 있습니다.",
     "directorRequired": "60만원 초과 — 위원장 승인 필요",
     "cancelRequest": "신청 취소",
-    "cancelConfirm": "이 신청서를 취소하시겠습니까?"
+    "cancelConfirm": "이 신청서를 취소하시겠습니까?",
+    "remainingCount": "{{count}}건 남음"
   },
   "settlement": {
     "title": "정산 처리",
@@ -221,7 +233,9 @@
     "settledCount": "정산 완료 {{count}}건",
     "unsettledCount": "미정산 {{count}}건",
     "statusDistribution": "신청 상태 분포",
-    "monthlyTrend": "월별 신청 추이",
+    "requestTrend": "신청 추이",
+    "monthlyTrend": "월별",
+    "dailyTrend": "일별 (14일)",
     "requestCount": "신청 건수",
     "requestAmount": "신청 금액"
   },
@@ -232,7 +246,9 @@
     "selfChangeError": "본인의 권한은 변경할 수 없습니다.",
     "roleChangeConfirm": "권한을 \"{{role}}\"(으)로 변경하시겠습니까?",
     "roleChangeFailed": "권한 변경에 실패했습니다.",
-    "me": "(나)"
+    "me": "(나)",
+    "deleteUser": "삭제",
+    "deleteConfirm": "이 사용자를 삭제하시겠습니까?"
   },
   "settings": {
     "title": "설정",

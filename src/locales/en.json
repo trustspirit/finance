@@ -53,7 +53,9 @@
     "approver_ops": "Session Approver",
     "finance_prep": "Logistical Finance (Head)",
     "approver_prep": "Logistical Approver",
-    "director": "Director",
+    "session_director": "Session Director",
+    "logistic_admin": "Logistical Director",
+    "executive": "Executive",
     "admin": "Admin"
   },
   "status": {
@@ -66,6 +68,14 @@
     "settled": "Settled",
     "cancelled": "Cancelled",
     "force_rejected": "Rejected"
+  },
+  "statusStep": {
+    "submitted": "Submitted",
+    "review": "Review",
+    "approval": "Approval",
+    "settlement": "Settlement",
+    "rejected": "Rejected",
+    "cancelled": "Cancelled"
   },
   "committee": {
     "operations": "Session Committee",
@@ -146,6 +156,7 @@
     "rejectTitle": "Rejection Reason",
     "rejectDescription": "Please enter the reason for rejection. The applicant will be notified.",
     "rejectPlaceholder": "Enter rejection reason...",
+    "selfReviewError": "You cannot review your own request.",
     "selfApproveError": "You cannot approve your own request.",
     "selfRejectError": "You cannot reject your own request.",
     "review": "Mark Reviewed",
@@ -168,7 +179,8 @@
     "rejectedOnly": "Only rejected requests can be resubmitted.",
     "directorRequired": "Over ₩600,000 — Director approval required",
     "cancelRequest": "Cancel Request",
-    "cancelConfirm": "Are you sure you want to cancel this request?"
+    "cancelConfirm": "Are you sure you want to cancel this request?",
+    "remainingCount": "{{count}} remaining"
   },
   "settlement": {
     "title": "Settlement",
@@ -221,7 +233,9 @@
     "settledCount": "Settled {{count}}",
     "unsettledCount": "Unsettled {{count}}",
     "statusDistribution": "Request Status",
-    "monthlyTrend": "Monthly Trend",
+    "requestTrend": "Request Trend",
+    "monthlyTrend": "Monthly",
+    "dailyTrend": "Daily (14 days)",
     "requestCount": "Requests",
     "requestAmount": "Amount"
   },
@@ -232,7 +246,9 @@
     "selfChangeError": "You cannot change your own role.",
     "roleChangeConfirm": "Change role to \"{{role}}\"?",
     "roleChangeFailed": "Failed to change role.",
-    "me": "(me)"
+    "me": "(me)",
+    "deleteUser": "Delete",
+    "deleteConfirm": "Are you sure you want to delete this user?"
   },
   "settings": {
     "title": "Settings",

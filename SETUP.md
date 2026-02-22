@@ -210,11 +210,13 @@ firebase deploy --only functions
 |------|------|------|
 | `user` | 일반 사용자 | 신청서 작성/조회 |
 | `finance_ops` | 운영위 재정 | 운영위 신청서 검토/반려 |
-| `approver_ops` | 운영위 승인자 | 운영위 검토완료 건 최종 승인/반려 |
-| `finance_prep` | 준비위 재정(총괄) | 모든 위원회 검토/반려, 정산, 승인건 반려, 영수증 관리, 대시보드/예산 설정, 사용자 관리 |
-| `approver_prep` | 준비위 승인자 | 준비위 검토완료 건 최종 승인/반려 |
-| `director` | 위원장 | 모든 위원회 최종 승인/반려, 대시보드, 고액 신청 승인 |
-| `admin` | 관리자 | 모든 권한 + 사용자 관리 + 프로젝트 관리 |
+| `approver_ops` | 운영위 승인자 | 운영위 검토완료 건 최종 승인/반려 (≤한도), 정산 열람 |
+| `finance_prep` | 준비위 재정(총괄) | 모든 위원회 검토/반려, 정산 처리, 승인건 반려, 영수증 관리, 대시보드/예산 설정, 사용자 관리 |
+| `approver_prep` | 준비위 승인자 | 준비위 검토완료 건 최종 승인/반려 (≤한도), 정산 열람 |
+| `session_director` | 운영 위원장 | 운영위 최종 승인/반려 (금액 무제한), 대시보드, 정산 열람 |
+| `logistic_admin` | 준비 위원장 | 준비위 최종 승인/반려 (금액 무제한), 대시보드, 정산 열람 |
+| `executive` | 대회장 | 모든 위원회 최종 승인/반려 (금액 무제한), 대시보드, 정산 열람 |
+| `admin` | 관리자 | 모든 권한 + 사용자 관리/삭제 + 프로젝트 관리 |
 
 역할별 권한 로직은 `src/lib/roles.ts`에서 관리합니다.
 
@@ -282,13 +284,14 @@ finanace/
 │   │   ├── Spinner            # 로딩 스피너
 │   │   ├── StatCard           # 통계 카드
 │   │   ├── StatusBadge        # 상태 배지
+│   │   ├── StatusProgress    # 상태 진행 표시 (4단계 스텝)
 │   │   ├── Tooltip            # 툴팁
 │   │   ├── dashboard/         # 대시보드 차트 컴포넌트
 │   │   │   ├── BudgetCodeBarChart   # 예산 코드별 바 차트
 │   │   │   ├── BudgetRingGauge      # 예산 사용률 영역 차트
 │   │   │   ├── BudgetSettingsSection # 예산 설정 섹션
 │   │   │   ├── CommitteeBarChart    # 위원회별 바 차트
-│   │   │   ├── MonthlyTrendChart    # 월별 추이 차트
+│   │   │   ├── MonthlyTrendChart    # 신청 추이 차트 (일별/월별 토글)
 │   │   │   └── TabbedCharts         # 탭 차트 컨테이너
 │   │   └── settings/          # 설정 하위 컴포넌트
 │   │       ├── MemberManagement     # 멤버 관리

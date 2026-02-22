@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../contexts/AuthContext'
-import { useInfiniteUsers, useUpdateUserRole } from '../hooks/queries/useUsers'
+import { useInfiniteUsers, useUpdateUserRole, useDeleteUser } from '../hooks/queries/useUsers'
 import { AppUser, UserRole } from '../types'
 import Layout from '../components/Layout'
 import Spinner from '../components/Spinner'
@@ -9,6 +9,7 @@ import PageHeader from '../components/PageHeader'
 import EmptyState from '../components/EmptyState'
 import InfiniteScrollSentinel from '../components/InfiniteScrollSentinel'
 import Select from '../components/Select'
+import { TrashIcon } from '../components/Icons'
 
 function BankInfoTooltip({ user, onClose }: { user: AppUser; onClose: () => void }) {
   const { t } = useTranslation()
@@ -112,9 +113,26 @@ export default function AdminUsersPage() {
     fetchNextPage,
   } = useInfiniteUsers()
   const updateRole = useUpdateUserRole()
+  const deleteUser = useDeleteUser()
   const [successUid, setSuccessUid] = useState<string | null>(null)
 
-  const users = data?.pages.flatMap(p => p.items) ?? []
+  const ROLE_PRIORITY: Record<UserRole, number> = {
+    admin: 0,
+    executive: 1,
+    finance_prep: 2,
+    session_director: 3,
+    logistic_admin: 4,
+    approver_ops: 5,
+    approver_prep: 6,
+    finance_ops: 7,
+    user: 8,
+  }
+
+  const users = (data?.pages.flatMap(p => p.items) ?? []).slice().sort((a, b) => {
+    const roleDiff = (ROLE_PRIORITY[a.role] ?? 99) - (ROLE_PRIORITY[b.role] ?? 99)
+    if (roleDiff !== 0) return roleDiff
+    return (a.displayName || a.name || '').localeCompare(b.displayName || b.name || '', 'ko')
+  })
 
   const isAdmin = currentUser?.role === 'admin'
 
@@ -124,7 +142,9 @@ export default function AdminUsersPage() {
     approver_ops: t('role.approver_ops'),
     finance_prep: t('role.finance_prep'),
     approver_prep: t('role.approver_prep'),
-    director: t('role.director'),
+    session_director: t('role.session_director'),
+    logistic_admin: t('role.logistic_admin'),
+    executive: t('role.executive'),
     admin: t('role.admin'),
   }
 
@@ -150,6 +170,12 @@ export default function AdminUsersPage() {
     )
   }
 
+  const handleDeleteUser = (uid: string) => {
+    if (uid === currentUser?.uid) return
+    if (!window.confirm(t('users.deleteConfirm'))) return
+    deleteUser.mutate(uid)
+  }
+
   return (
     <Layout>
       <PageHeader title={t('users.title')} />
@@ -172,6 +198,9 @@ export default function AdminUsersPage() {
                     <th className="text-left px-4 py-3 font-medium text-gray-600">{t('field.phone')}</th>
                     {isAdmin && (
                       <th className="text-center px-4 py-3 font-medium text-gray-600">{t('role.label')}</th>
+                    )}
+                    {isAdmin && (
+                      <th className="text-center px-4 py-3 font-medium text-gray-600 w-16"></th>
                     )}
                   </tr>
                 </thead>
@@ -200,12 +229,26 @@ export default function AdminUsersPage() {
                             <option value="approver_ops">{t('role.approver_ops')}</option>
                             <option value="finance_prep">{t('role.finance_prep')}</option>
                             <option value="approver_prep">{t('role.approver_prep')}</option>
-                            <option value="director">{t('role.director')}</option>
+                            <option value="session_director">{t('role.session_director')}</option>
+                            <option value="logistic_admin">{t('role.logistic_admin')}</option>
+                            <option value="executive">{t('role.executive')}</option>
                             <option value="admin">{t('role.admin')}</option>
                           </Select>
                           {successUid === u.uid && (
                             <p className="text-xs text-green-600 mt-1">{t('users.roleChanged')}</p>
                           )}
+                        </td>
+                      )}
+                      {isAdmin && (
+                        <td className="px-4 py-3 text-center">
+                          <button
+                            onClick={() => handleDeleteUser(u.uid)}
+                            disabled={u.uid === currentUser?.uid}
+                            className="p-1 text-gray-400 hover:text-red-500 disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+                            title={t('users.deleteUser')}
+                          >
+                            <TrashIcon className="w-4 h-4" />
+                          </button>
                         </td>
                       )}
                     </tr>
@@ -244,11 +287,22 @@ export default function AdminUsersPage() {
                       <option value="approver_ops">{t('role.approver_ops')}</option>
                       <option value="finance_prep">{t('role.finance_prep')}</option>
                       <option value="approver_prep">{t('role.approver_prep')}</option>
-                      <option value="director">{t('role.director')}</option>
+                      <option value="session_director">{t('role.session_director')}</option>
+                      <option value="logistic_admin">{t('role.logistic_admin')}</option>
+                      <option value="executive">{t('role.executive')}</option>
                       <option value="admin">{t('role.admin')}</option>
                     </Select>
                     {successUid === u.uid && (
                       <p className="text-xs text-green-600 mt-1">{t('users.roleChanged')}</p>
+                    )}
+                    {u.uid !== currentUser?.uid && (
+                      <button
+                        onClick={() => handleDeleteUser(u.uid)}
+                        className="mt-2 p-1 text-gray-400 hover:text-red-500 transition-colors"
+                        title={t('users.deleteUser')}
+                      >
+                        <TrashIcon className="w-4 h-4" />
+                      </button>
                     )}
                   </div>
                 ) : (

@@ -95,13 +95,31 @@ export function useSoftDeleteProject() {
 
   return useMutation({
     mutationFn: async (projectId: string) => {
-      await setDoc(doc(db, 'projects', projectId), {
+      const projectSnap = await getDoc(doc(db, 'projects', projectId))
+      const memberUids: string[] = projectSnap.exists() ? (projectSnap.data().memberUids || []) : []
+
+      const batch = writeBatch(db)
+      batch.set(doc(db, 'projects', projectId), {
         isActive: false,
         deletedAt: serverTimestamp(),
       }, { merge: true })
+
+      // Remove projectId from all members' projectIds
+      const memberSnaps = await Promise.all(
+        memberUids.map(uid => getDoc(doc(db, 'users', uid)))
+      )
+      memberSnaps.forEach((snap) => {
+        if (snap.exists()) {
+          const projectIds = (snap.data().projectIds || []).filter((id: string) => id !== projectId)
+          batch.update(snap.ref, { projectIds })
+        }
+      })
+
+      await batch.commit()
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.projects.root() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.all() })
     },
   })
 }
@@ -111,13 +129,33 @@ export function useRestoreProject() {
 
   return useMutation({
     mutationFn: async (projectId: string) => {
-      await setDoc(doc(db, 'projects', projectId), {
+      const projectSnap = await getDoc(doc(db, 'projects', projectId))
+      const memberUids: string[] = projectSnap.exists() ? (projectSnap.data().memberUids || []) : []
+
+      const batch = writeBatch(db)
+      batch.set(doc(db, 'projects', projectId), {
         isActive: true,
         deletedAt: deleteField(),
       }, { merge: true })
+
+      // Re-add projectId to all members' projectIds
+      const memberSnaps = await Promise.all(
+        memberUids.map(uid => getDoc(doc(db, 'users', uid)))
+      )
+      memberSnaps.forEach((snap) => {
+        if (snap.exists()) {
+          const projectIds: string[] = snap.data().projectIds || []
+          if (!projectIds.includes(projectId)) {
+            batch.update(snap.ref, { projectIds: [...projectIds, projectId] })
+          }
+        }
+      })
+
+      await batch.commit()
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.projects.root() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.all() })
     },
   })
 }

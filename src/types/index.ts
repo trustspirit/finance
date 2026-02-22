@@ -1,4 +1,4 @@
-export type UserRole = 'user' | 'finance_ops' | 'approver_ops' | 'finance_prep' | 'approver_prep' | 'director' | 'admin'
+export type UserRole = 'user' | 'finance_ops' | 'approver_ops' | 'finance_prep' | 'approver_prep' | 'session_director' | 'logistic_admin' | 'executive' | 'admin'
 
 export interface ProjectBudgetConfig {
   totalBudget: number

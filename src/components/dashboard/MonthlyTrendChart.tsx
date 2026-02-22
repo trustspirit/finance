@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   AreaChart,
   Area,
@@ -10,17 +10,20 @@ import {
 } from "recharts";
 import { useTranslation } from "react-i18next";
 
+type TrendMode = "monthly" | "daily";
+
 interface Props {
   requests: { date: string; totalAmount: number }[];
 }
 
 export default function MonthlyTrendChart({ requests }: Props) {
   const { t, i18n } = useTranslation();
+  const [mode, setMode] = useState<TrendMode>("daily");
 
-  const data = useMemo(() => {
+  const monthlyData = useMemo(() => {
     const now = new Date();
     const months: {
-      month: string;
+      key: string;
       label: string;
       count: number;
       amount: number;
@@ -30,13 +33,13 @@ export default function MonthlyTrendChart({ requests }: Props) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const label = d.toLocaleDateString(i18n.language, { month: "short" });
-      months.push({ month: key, label, count: 0, amount: 0 });
+      months.push({ key, label, count: 0, amount: 0 });
     }
 
     requests.forEach((r) => {
       if (!r.date) return;
       const key = r.date.substring(0, 7);
-      const entry = months.find((m) => m.month === key);
+      const entry = months.find((m) => m.key === key);
       if (entry) {
         entry.count++;
         entry.amount += r.totalAmount;
@@ -46,18 +49,51 @@ export default function MonthlyTrendChart({ requests }: Props) {
     return months;
   }, [requests, i18n.language]);
 
+  const dailyData = useMemo(() => {
+    const days: {
+      key: string;
+      label: string;
+      count: number;
+      amount: number;
+    }[] = [];
+
+    const now = new Date();
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const label = `${d.getMonth() + 1}/${d.getDate()}`;
+      days.push({ key, label, count: 0, amount: 0 });
+    }
+
+    requests.forEach((r) => {
+      if (!r.date) return;
+      const entry = days.find((d) => d.key === r.date);
+      if (entry) {
+        entry.count++;
+        entry.amount += r.totalAmount;
+      }
+    });
+
+    return days;
+  }, [requests]);
+
+  const data = mode === "monthly" ? monthlyData : dailyData;
   const hasData = data.some((d) => d.count > 0);
 
   if (!hasData) {
     return (
-      <div className="flex items-center justify-center h-[250px] text-gray-400 text-sm">
-        {t("common.noData")}
-      </div>
+      <>
+        <ModeToggle mode={mode} setMode={setMode} t={t} />
+        <div className="flex items-center justify-center h-[250px] text-gray-400 text-sm">
+          {t("common.noData")}
+        </div>
+      </>
     );
   }
 
   return (
     <>
+      <ModeToggle mode={mode} setMode={setMode} t={t} />
       <div className="h-[250px]">
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data}>
@@ -72,7 +108,14 @@ export default function MonthlyTrendChart({ requests }: Props) {
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
-            <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+            <XAxis
+              dataKey="label"
+              tick={{ fontSize: 11 }}
+              interval={mode === "daily" ? 1 : 0}
+              angle={mode === "daily" ? -45 : 0}
+              textAnchor={mode === "daily" ? "end" : "middle"}
+              height={mode === "daily" ? 45 : 30}
+            />
             <YAxis
               yAxisId="left"
               tick={{ fontSize: 12 }}
@@ -134,5 +177,42 @@ export default function MonthlyTrendChart({ requests }: Props) {
         </div>
       </div>
     </>
+  );
+}
+
+function ModeToggle({
+  mode,
+  setMode,
+  t,
+}: {
+  mode: TrendMode;
+  setMode: (m: TrendMode) => void;
+  t: (key: string) => string;
+}) {
+  return (
+    <div className="flex justify-end mb-2">
+      <div className="inline-flex rounded-md bg-gray-100 p-0.5">
+        <button
+          onClick={() => setMode("daily")}
+          className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+            mode === "daily"
+              ? "bg-white text-blue-600 shadow-sm"
+              : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          {t("dashboard.dailyTrend")}
+        </button>
+        <button
+          onClick={() => setMode("monthly")}
+          className={`px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+            mode === "monthly"
+              ? "bg-white text-blue-600 shadow-sm"
+              : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          {t("dashboard.monthlyTrend")}
+        </button>
+      </div>
+    </div>
   );
 }

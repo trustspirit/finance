@@ -3,34 +3,22 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useProject } from "../contexts/ProjectContext";
 import { RequestStatus } from "../types";
-import { useBudgetUsage } from "../hooks/useBudgetUsage";
 import Layout from "../components/Layout";
 import StatusBadge from "../components/StatusBadge";
 import Spinner from "../components/Spinner";
 import PageHeader from "../components/PageHeader";
 import InfiniteScrollSentinel from "../components/InfiniteScrollSentinel";
-import {
-  ApprovalModal,
-  RejectionModal,
-} from "../components/AdminRequestModals";
 import Tooltip from "../components/Tooltip";
 import { useTranslation } from "react-i18next";
 import Select from "../components/Select";
 import {
-  canReviewCommittee,
-  canFinalApproveCommittee,
-  canFinalApproveRequest,
   canSeeCommitteeRequests,
   DEFAULT_APPROVAL_THRESHOLD,
 } from "../lib/roles";
 
 import {
   useInfiniteRequests,
-  useReviewRequest,
-  useApproveRequest,
-  useRejectRequest,
 } from "../hooks/queries/useRequests";
-import { useUser } from "../hooks/queries/useUsers";
 
 type SortKey = "date" | "payee" | "totalAmount" | "status";
 type SortDir = "asc" | "desc";
@@ -62,17 +50,17 @@ function SortIcon({
 
 export default function AdminRequestsPage() {
   const { t } = useTranslation();
-  const { user, appUser } = useAuth();
+  const { appUser } = useAuth();
   const { currentProject } = useProject();
   const role = appUser?.role || "user";
   const [filter, setFilter] = useState<RequestStatus | "all">("all");
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
-  const isReviewer = canReviewCommittee(role, "operations") || canReviewCommittee(role, "preparation");
-  const isFinalApprover = canFinalApproveCommittee(role, "operations") || canFinalApproveCommittee(role, "preparation");
-
-  const firestoreStatus = filter === "all" ? undefined : filter;
+  const firestoreStatus: RequestStatus | RequestStatus[] | undefined =
+    filter === "all" ? undefined
+    : filter === "rejected" ? ["rejected", "force_rejected"]
+    : filter;
   const sortParam = useMemo(
     () => ({ field: sortKey, dir: sortDir }),
     [sortKey, sortDir],
@@ -87,100 +75,13 @@ export default function AdminRequestsPage() {
     fetchNextPage,
   } = useInfiniteRequests(currentProject?.id, firestoreStatus, sortParam);
 
-  const reviewMutation = useReviewRequest();
-  const approveMutation = useApproveRequest();
-  const rejectMutation = useRejectRequest();
-  const [signModalRequestId, setSignModalRequestId] = useState<string | null>(null);
-  const [rejectModalRequestId, setRejectModalRequestId] = useState<string | null>(null);
-
   const allRequests = useMemo(
     () => data?.pages.flatMap((p) => p.items) ?? [],
     [data],
   );
 
-  const signModalRequest = allRequests.find((r) => r.id === signModalRequestId);
-  const { data: requester } = useUser(signModalRequest?.requestedBy.uid);
-
   const threshold =
     currentProject?.directorApprovalThreshold ?? DEFAULT_APPROVAL_THRESHOLD;
-
-  // Review handler (pending → reviewed)
-  const handleReview = (requestId: string) => {
-    const req = allRequests.find((r) => r.id === requestId);
-    if (!req) return;
-    if (req.requestedBy.uid === user?.uid) {
-      alert(t("approval.selfApproveError"));
-      return;
-    }
-    if (!canReviewCommittee(role, req.committee)) return;
-    if (!user || !appUser) return;
-    const reviewerName = appUser.displayName || appUser.name;
-    reviewMutation.mutate({
-      requestId,
-      projectId: currentProject!.id,
-      reviewer: { uid: user.uid, name: reviewerName, email: appUser.email },
-    });
-  };
-
-  // Final approve handler (reviewed → approved)
-  const handleApproveWithSign = (requestId: string) => {
-    const req = allRequests.find((r) => r.id === requestId);
-    if (!req) return;
-    if (req.requestedBy.uid === user?.uid) {
-      alert(t("approval.selfApproveError"));
-      return;
-    }
-    if (!canFinalApproveRequest(role, req.committee, req.totalAmount, threshold)) {
-      if (req.totalAmount > threshold) {
-        alert(t("approval.directorRequired"));
-      }
-      return;
-    }
-    setSignModalRequestId(requestId);
-  };
-
-  const handleApproveConfirm = (signatureData: string) => {
-    if (!user || !appUser || !signModalRequestId) return;
-    const approverName = appUser.displayName || appUser.name;
-    approveMutation.mutate(
-      {
-        requestId: signModalRequestId,
-        projectId: currentProject!.id,
-        approver: { uid: user.uid, name: approverName, email: appUser.email },
-        signature: signatureData,
-      },
-      { onSuccess: () => setSignModalRequestId(null) },
-    );
-  };
-
-  const handleRejectOpen = (requestId: string) => {
-    const req = allRequests.find((r) => r.id === requestId);
-    if (!req) return;
-    if (req.requestedBy.uid === user?.uid) {
-      alert(t("approval.selfRejectError"));
-      return;
-    }
-    // Reviewer can reject pending, final approver can reject reviewed
-    if (req.status === "pending" && !canReviewCommittee(role, req.committee)) return;
-    if (req.status === "reviewed" && !canFinalApproveCommittee(role, req.committee)) return;
-    setRejectModalRequestId(requestId);
-  };
-
-  const handleRejectConfirm = (reason: string) => {
-    if (!user || !appUser || !rejectModalRequestId) return;
-    const approverName = appUser.displayName || appUser.name;
-    rejectMutation.mutate(
-      {
-        requestId: rejectModalRequestId,
-        projectId: currentProject!.id,
-        approver: { uid: user.uid, name: approverName, email: appUser.email },
-        rejectionReason: reason,
-      },
-      { onSuccess: () => setRejectModalRequestId(null) },
-    );
-  };
-
-  const budgetUsage = useBudgetUsage();
 
   const accessible = useMemo(() => {
     return filter === "all"
@@ -200,53 +101,7 @@ export default function AdminRequestsPage() {
     }
   };
 
-  const bankBookUrl = requester?.bankBookUrl || requester?.bankBookDriveUrl;
-
-  const filterTabs = ["all", "pending", "reviewed", "approved", "settled", "rejected", "force_rejected"] as const;
-
-  // Determine what action buttons to show for a request
-  const renderActions = (req: typeof allRequests[0]) => {
-    // pending → reviewer can "검토완료" / "반려"
-    if (req.status === "pending" && isReviewer && canReviewCommittee(role, req.committee)) {
-      return (
-        <div className="flex gap-1 justify-center">
-          <button
-            onClick={() => handleReview(req.id)}
-            disabled={reviewMutation.isPending}
-            className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:bg-gray-400"
-          >
-            {t("approval.review")}
-          </button>
-          <button
-            onClick={() => handleRejectOpen(req.id)}
-            className="px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700"
-          >
-            {t("approval.reject")}
-          </button>
-        </div>
-      );
-    }
-    // reviewed → final approver can "승인" / "반려"
-    if (req.status === "reviewed" && isFinalApprover && canFinalApproveRequest(role, req.committee, req.totalAmount, threshold)) {
-      return (
-        <div className="flex gap-1 justify-center">
-          <button
-            onClick={() => handleApproveWithSign(req.id)}
-            className="px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700"
-          >
-            {t("approval.approve")}
-          </button>
-          <button
-            onClick={() => handleRejectOpen(req.id)}
-            className="px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700"
-          >
-            {t("approval.reject")}
-          </button>
-        </div>
-      );
-    }
-    return null;
-  };
+  const filterTabs = ["all", "pending", "reviewed", "approved", "settled", "rejected"] as const;
 
   // Remarks column content
   const renderRemarks = (req: typeof allRequests[0]) => {
@@ -263,18 +118,20 @@ export default function AdminRequestsPage() {
       );
     }
 
-    if (req.reviewedBy && (req.status === "reviewed" || req.status === "approved" || req.status === "settled")) {
+    if (req.reviewedBy && (req.status === "reviewed" || req.status === "approved" || req.status === "settled")
+      && !(req.approvedBy && req.reviewedBy.uid === req.approvedBy.uid)) {
       parts.push(
         <Tooltip key="reviewed" text={`${t("approval.reviewedBy")}: ${req.reviewedBy.name}`} maxWidth="160px" />
       );
     }
-    if (req.approvedBy && (req.status === "approved" || req.status === "rejected" || req.status === "settled")) {
+    if (req.approvedBy && (req.status === "approved" || req.status === "settled")) {
       parts.push(
-        <Tooltip key="approved" text={
-          req.status === "rejected" && req.rejectionReason
-            ? `${req.approvedBy.name}: ${req.rejectionReason}`
-            : req.approvedBy.name
-        } maxWidth="160px" />
+        <Tooltip key="approved" text={`${t("field.approvedBy")}: ${req.approvedBy.name}`} maxWidth="160px" />
+      );
+    }
+    if (req.approvedBy && req.status === "rejected" && req.rejectionReason) {
+      parts.push(
+        <Tooltip key="rejected" text={`${req.approvedBy.name}: ${req.rejectionReason}`} maxWidth="160px" className="text-red-500" />
       );
     }
     if (req.status === "force_rejected" && req.rejectionReason) {
@@ -325,7 +182,6 @@ export default function AdminRequestsPage() {
                         { key: "totalAmount" as SortKey, label: t("field.totalAmount"), align: "text-right" },
                         { key: "status" as SortKey, label: t("status.label"), align: "text-center" },
                         { key: null, label: t("field.remarks"), align: "text-left" },
-                        { key: null, label: "", align: "text-center" },
                       ] as const).map((col, i) => (
                         <th
                           key={i}
@@ -350,6 +206,7 @@ export default function AdminRequestsPage() {
                         <td className="px-4 py-3">
                           <Link
                             to={`/request/${req.id}`}
+                            state={{ from: "/admin/requests" }}
                             className="text-blue-600 hover:underline"
                           >
                             {req.date}
@@ -367,9 +224,6 @@ export default function AdminRequestsPage() {
                         </td>
                         <td className="px-4 py-3 text-xs text-gray-500">
                           {renderRemarks(req)}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          {renderActions(req)}
                         </td>
                       </tr>
                     ))}
@@ -407,6 +261,7 @@ export default function AdminRequestsPage() {
                 <Link
                   key={req.id}
                   to={`/request/${req.id}`}
+                  state={{ from: "/admin/requests" }}
                   className="block bg-white rounded-lg shadow p-4"
                 >
                   <div className="flex items-center justify-between mb-2">
@@ -417,50 +272,9 @@ export default function AdminRequestsPage() {
                     <span>{req.date}</span>
                     <span>{t(`committee.${req.committee}Short`)}</span>
                   </div>
-                  <div className="text-right font-semibold text-gray-900 mb-3">
+                  <div className="text-right font-semibold text-gray-900">
                     ₩{req.totalAmount.toLocaleString()}
                   </div>
-                  {/* Mobile action buttons */}
-                  {req.status === "pending" && isReviewer && canReviewCommittee(role, req.committee) && (
-                    <div className="flex gap-2" onClick={(e) => e.preventDefault()}>
-                      <button
-                        onClick={() => handleReview(req.id)}
-                        disabled={reviewMutation.isPending}
-                        className="flex-1 px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:bg-gray-400"
-                      >
-                        {t("approval.review")}
-                      </button>
-                      <button
-                        onClick={() => handleRejectOpen(req.id)}
-                        className="flex-1 px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700"
-                      >
-                        {t("approval.reject")}
-                      </button>
-                    </div>
-                  )}
-                  {req.status === "reviewed" && isFinalApprover && canFinalApproveRequest(role, req.committee, req.totalAmount, threshold) && (
-                    <div className="flex gap-2" onClick={(e) => e.preventDefault()}>
-                      <button
-                        onClick={() => handleApproveWithSign(req.id)}
-                        className="flex-1 px-3 py-1.5 bg-green-600 text-white rounded text-sm hover:bg-green-700"
-                      >
-                        {t("approval.approve")}
-                      </button>
-                      <button
-                        onClick={() => handleRejectOpen(req.id)}
-                        className="flex-1 px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700"
-                      >
-                        {t("approval.reject")}
-                      </button>
-                    </div>
-                  )}
-                  {req.status === "reviewed" &&
-                    !canFinalApproveRequest(role, req.committee, req.totalAmount, threshold) &&
-                    req.totalAmount > threshold && (
-                      <p className="text-xs text-orange-600 mt-1">
-                        {t("approval.directorRequired")}
-                      </p>
-                    )}
                 </Link>
               ))}
             </div>
@@ -474,25 +288,6 @@ export default function AdminRequestsPage() {
         </>
       )}
 
-      <ApprovalModal
-        key={signModalRequestId ?? ""}
-        open={!!signModalRequestId}
-        onClose={() => setSignModalRequestId(null)}
-        request={signModalRequest ?? null}
-        bankBookUrl={bankBookUrl}
-        budgetUsage={budgetUsage}
-        savedSignature={appUser?.signature}
-        onConfirm={handleApproveConfirm}
-        isPending={approveMutation.isPending}
-      />
-
-      <RejectionModal
-        key={rejectModalRequestId ?? ""}
-        open={!!rejectModalRequestId}
-        onClose={() => setRejectModalRequestId(null)}
-        onConfirm={handleRejectConfirm}
-        isPending={rejectMutation.isPending}
-      />
     </Layout>
   );
 }

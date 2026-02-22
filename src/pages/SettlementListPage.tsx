@@ -1,9 +1,11 @@
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
 import { useProject } from '../contexts/ProjectContext'
 import { useInfiniteSettlements } from '../hooks/queries/useSettlements'
 import { formatFirestoreDate } from '../lib/utils'
 import { Settlement } from '../types'
+import { canAccessSettlement } from '../lib/roles'
 import Layout from '../components/Layout'
 import Spinner from '../components/Spinner'
 import EmptyState from '../components/EmptyState'
@@ -12,7 +14,9 @@ import InfiniteScrollSentinel from '../components/InfiniteScrollSentinel'
 
 export default function SettlementListPage() {
   const { t } = useTranslation()
+  const { appUser } = useAuth()
   const { currentProject } = useProject()
+  const canProcess = canAccessSettlement(appUser?.role || 'user')
   const {
     data,
     isLoading: loading,
@@ -29,7 +33,7 @@ export default function SettlementListPage() {
     <Layout>
       <PageHeader
         title={t('settlement.listTitle')}
-        action={{ label: t('settlement.newSettlement'), to: '/admin/settlement/new', variant: 'purple' }}
+        action={canProcess ? { label: t('settlement.newSettlement'), to: '/admin/settlement/new', variant: 'purple' } : undefined}
       />
 
       {loading ? (
@@ -38,8 +42,8 @@ export default function SettlementListPage() {
         <EmptyState
           title={t('settlement.noSettlements')}
           description={t('settlement.description')}
-          actionLabel={t('settlement.newSettlement')}
-          actionTo="/admin/settlement/new"
+          actionLabel={canProcess ? t('settlement.newSettlement') : undefined}
+          actionTo={canProcess ? "/admin/settlement/new" : undefined}
         />
       ) : (
         <>

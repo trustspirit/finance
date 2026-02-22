@@ -359,8 +359,8 @@ export const onRequestStatusChange = onDocumentUpdated(
 
       // 해당 위원회 승인자 조회
       const approverRoles = committee === 'operations'
-        ? ['approver_ops', 'director', 'admin']
-        : ['approver_prep', 'director', 'admin']
+        ? ['approver_ops', 'session_director', 'executive', 'admin']
+        : ['approver_prep', 'logistic_admin', 'executive', 'admin']
 
       const usersSnapshot = await db.collection('users')
         .where('role', 'in', approverRoles)
@@ -457,7 +457,7 @@ export const weeklyApproverDigest = onSchedule(
     const db = admin.firestore()
 
     // 관련 역할 사용자 조회
-    const relevantRoles = ['finance_ops', 'finance_prep', 'approver_ops', 'approver_prep', 'director', 'admin']
+    const relevantRoles = ['finance_ops', 'finance_prep', 'approver_ops', 'approver_prep', 'session_director', 'logistic_admin', 'executive', 'admin']
     const usersSnapshot = await db.collection('users')
       .where('role', 'in', relevantRoles)
       .get()
@@ -526,8 +526,14 @@ export const weeklyApproverDigest = onSchedule(
       } else if (role === 'approver_prep') {
         // 준비위 승인자: 준비위 승인 대기
         sections.push({ label: '준비위 승인 대기', count: prepReviewedCount })
-      } else if (role === 'director' || role === 'admin') {
-        // 위원장/관리자: 전체 승인 대기 + 미정산
+      } else if (role === 'session_director') {
+        // 운영 위원장: 운영위 승인 대기
+        sections.push({ label: '운영위 승인 대기', count: opsReviewedCount })
+      } else if (role === 'logistic_admin') {
+        // 준비 위원장: 준비위 승인 대기
+        sections.push({ label: '준비위 승인 대기', count: prepReviewedCount })
+      } else if (role === 'executive' || role === 'admin') {
+        // 대회장/관리자: 전체 승인 대기 + 미정산
         sections.push({ label: '승인 대기', count: totalReviewedCount })
         sections.push({ label: '승인 미정산', count: totalApprovedUnsettledCount })
       }

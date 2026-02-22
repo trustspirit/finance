@@ -88,23 +88,29 @@ export function useApprovedRequests(projectId: string | undefined) {
 
 export function useInfiniteRequests(
   projectId: string | undefined,
-  status?: RequestStatus,
+  status?: RequestStatus | RequestStatus[],
   sort?: { field: string; dir: "asc" | "desc" },
 ) {
   const sortField = sort?.field ?? "createdAt";
   const sortDir = sort?.dir ?? "desc";
   const sortKey = `${sortField}-${sortDir}`;
 
-  const queryKey = status
-    ? queryKeys.requests.infiniteByStatus(projectId!, status, sortKey)
+  const statusKey = Array.isArray(status) ? status.join(",") : status;
+  const queryKey = statusKey
+    ? queryKeys.requests.infiniteByStatus(projectId!, statusKey, sortKey)
     : queryKeys.requests.infinite(projectId!, sortKey);
 
   return useInfiniteQuery({
     queryKey,
     queryFn: async ({ pageParam }) => {
+      const statusConstraint = status
+        ? Array.isArray(status)
+          ? [where("status", "in", status)]
+          : [where("status", "==", status)]
+        : [];
       const constraints: QueryConstraint[] = [
         where("projectId", "==", projectId),
-        ...(status ? [where("status", "==", status)] : []),
+        ...statusConstraint,
         orderBy(sortField, sortDir),
       ];
       if (pageParam) constraints.push(startAfter(pageParam));
@@ -128,13 +134,21 @@ export function useInfiniteRequests(
 export function useInfiniteMyRequests(
   projectId: string | undefined,
   uid: string | undefined,
+  status?: RequestStatus | RequestStatus[],
 ) {
+  const statusKey = Array.isArray(status) ? status.join(",") : status;
   return useInfiniteQuery({
-    queryKey: queryKeys.requests.infiniteByUser(projectId!, uid!),
+    queryKey: [...queryKeys.requests.infiniteByUser(projectId!, uid!), statusKey],
     queryFn: async ({ pageParam }) => {
+      const statusConstraint = status
+        ? Array.isArray(status)
+          ? [where("status", "in", status)]
+          : [where("status", "==", status)]
+        : [];
       const constraints: QueryConstraint[] = [
         where("projectId", "==", projectId),
         where("requestedBy.uid", "==", uid),
+        ...statusConstraint,
         orderBy("createdAt", "desc"),
       ];
       if (pageParam) constraints.push(startAfter(pageParam));

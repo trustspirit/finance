@@ -10,6 +10,7 @@ import {
   getDoc,
   doc,
   updateDoc,
+  deleteDoc,
   query,
   orderBy,
   limit,
@@ -71,6 +72,19 @@ export function useUpdateUserRole() {
   return useMutation({
     mutationFn: async (params: { uid: string; role: UserRole }) => {
       await updateDoc(doc(db, "users", params.uid), { role: params.role });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.users.all() });
+    },
+  });
+}
+
+export function useDeleteUser() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (uid: string) => {
+      await deleteDoc(doc(db, "users", uid));
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.users.all() });

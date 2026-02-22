@@ -7,7 +7,7 @@ import {
   canAccessDashboard,
   canManageUsers,
   canAccessReceipts,
-  canAccessSettlement,
+  canAccessSettlementRead,
 } from "../lib/roles";
 import ProjectSelector from "./ProjectSelector";
 import { GearIcon, CloseIcon, MenuIcon, ChevronDownIcon } from "./Icons";
@@ -114,7 +114,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     ...(isStaff(role)
       ? [{ to: "/admin/requests", label: t("nav.adminRequests") }]
       : []),
-    ...(canAccessSettlement(role)
+    ...(canAccessSettlementRead(role)
       ? [{ to: "/admin/settlements", label: t("nav.settlements") }]
       : []),
     ...(canAccessDashboard(role)
@@ -147,7 +147,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     ...(isStaff(role)
       ? [{ to: "/admin/requests", label: t("nav.adminRequests") }]
       : []),
-    ...(canAccessSettlement(role)
+    ...(canAccessSettlementRead(role)
       ? [{ to: "/admin/settlements", label: t("nav.settlements") }]
       : []),
     ...(canAccessReceipts(role)

@@ -42,7 +42,9 @@ service cloud.firestore {
             && (
               (userRole() == 'approver_ops' && resource.data.committee == 'operations')
               || (userRole() == 'approver_prep' && resource.data.committee == 'preparation')
-              || userRole() in ['director', 'admin']
+              || (userRole() == 'session_director' && resource.data.committee == 'operations')
+              || (userRole() == 'logistic_admin' && resource.data.committee == 'preparation')
+              || userRole() in ['executive', 'admin']
             )
           )
           // --- Settlement: approved → settled (finance_prep, admin) ---
@@ -73,7 +75,7 @@ service cloud.firestore {
     }
     match /settlements/{docId} {
       allow read: if request.auth != null
-        && userRole() in ['admin', 'director', 'finance_prep', 'approver_ops', 'approver_prep'];
+        && userRole() in ['admin', 'executive', 'session_director', 'logistic_admin', 'finance_prep', 'approver_ops', 'approver_prep'];
       allow write: if request.auth != null
         && userRole() in ['admin', 'finance_prep'];
     }
