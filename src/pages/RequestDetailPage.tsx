@@ -85,12 +85,15 @@ export default function RequestDetailPage() {
       isFirstMount.current = false
       return
     }
-    setSlideState('in')
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
+    // Use rAF to avoid setState directly in effect body
+    const raf1 = requestAnimationFrame(() => {
+      setSlideState('in')
+      const raf2 = requestAnimationFrame(() => {
         setSlideState('idle')
       })
+      return () => cancelAnimationFrame(raf2)
     })
+    return () => cancelAnimationFrame(raf1)
   }, [id])
 
   const isSelf = request?.requestedBy.uid === user?.uid
