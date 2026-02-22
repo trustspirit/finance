@@ -12,14 +12,14 @@ import { useCreateSettlement } from '../hooks/queries/useSettlements'
 import { useUser } from '../hooks/queries/useUsers'
 import { useBudgetUsage } from '../hooks/useBudgetUsage'
 import Layout from '../components/Layout'
-import Spinner from '../components/Spinner'
-import BudgetWarningBanner from '../components/BudgetWarningBanner'
-import InfoGrid from '../components/InfoGrid'
-import ItemsTable from '../components/ItemsTable'
-import ReceiptGallery from '../components/ReceiptGallery'
-import { ForceRejectionModal } from '../components/AdminRequestModals'
+import SettlementSelectTable from '../components/settlement/SettlementSelectTable'
+import SettlementReviewStep from '../components/settlement/SettlementReviewStep'
+import SettlementSummary from '../components/settlement/SettlementSummary'
 
 type ReviewPhase = 'select' | 'review' | 'summary'
+
+const payeeKey = (req: PaymentRequest) =>
+  `${req.requestedBy.uid}|${req.bankName}|${req.bankAccount}|${req.committee}|${req.session}`
 
 export default function SettlementPage() {
   const { t } = useTranslation()
@@ -33,6 +33,7 @@ export default function SettlementPage() {
 
   // Review mode state
   const [reviewPhase, setReviewPhase] = useState<ReviewPhase>('select')
+  const [reviewSnapshot, setReviewSnapshot] = useState<PaymentRequest[]>([])
   const [reviewIndex, setReviewIndex] = useState(0)
   const [reviewedIds, setReviewedIds] = useState<Set<string>>(new Set())
   const [rejectedIds, setRejectedIds] = useState<Set<string>>(new Set())
@@ -53,8 +54,8 @@ export default function SettlementPage() {
     [requests, selected]
   )
 
-  // Current request being reviewed
-  const currentReviewRequest = selectedRequests[reviewIndex] as PaymentRequest | undefined
+  // Current request being reviewed (from frozen snapshot)
+  const currentReviewRequest = reviewSnapshot[reviewIndex] as PaymentRequest | undefined
   const { data: currentRequester } = useUser(
     reviewPhase === 'review' ? currentReviewRequest?.requestedBy.uid : undefined
   )
@@ -91,19 +92,22 @@ export default function SettlementPage() {
 
   const startReview = () => {
     if (selected.size === 0) return
+    setReviewSnapshot([...selectedRequests])
     setReviewIndex(0)
     setReviewedIds(new Set())
     setRejectedIds(new Set())
     setReviewPhase('review')
   }
 
-  const advanceReview = () => {
-    if (reviewIndex < selectedRequests.length - 1) {
-      setReviewIndex(reviewIndex + 1)
-    } else {
+  const advanceReview = useCallback(() => {
+    setReviewIndex(prev => {
+      if (prev < reviewSnapshot.length - 1) {
+        return prev + 1
+      }
       setReviewPhase('summary')
-    }
-  }
+      return prev
+    })
+  }, [reviewSnapshot.length])
 
   const handleConfirmInclude = () => {
     if (!currentReviewRequest) return
@@ -127,22 +131,29 @@ export default function SettlementPage() {
           setRejectingRequestId(null)
           advanceReview()
         },
+        onError: () => {
+          alert(t('settlement.settleFailed'))
+        },
       },
     )
   }
 
   const backToSelect = () => {
+    if (reviewedIds.size > 0 || rejectedIds.size > 0) {
+      if (!window.confirm(t('settlement.backToSelectConfirm'))) return
+    }
     setReviewPhase('select')
+    setReviewSnapshot([])
     setReviewIndex(0)
     setReviewedIds(new Set())
     setRejectedIds(new Set())
   }
 
   // For final settlement, only use reviewed (included) requests
-  const includedRequests = selectedRequests.filter(r => reviewedIds.has(r.id))
+  const includedRequests = reviewSnapshot.filter(r => reviewedIds.has(r.id))
 
   const groupedByPayee = includedRequests.reduce<Record<string, PaymentRequest[]>>((acc, req) => {
-    const key = `${req.requestedBy.uid}|${req.bankName}|${req.bankAccount}|${req.committee}|${req.session}`
+    const key = payeeKey(req)
     if (!acc[key]) acc[key] = []
     acc[key].push(req)
     return acc
@@ -150,6 +161,8 @@ export default function SettlementPage() {
 
   const handleFinalSettle = async () => {
     if (!user || !appUser || !currentProject || reviewedIds.size === 0) return
+    const confirmed = window.confirm(t('settlement.settleConfirm', { count: reviewedIds.size, payeeCount: Object.keys(groupedByPayee).length }))
+    if (!confirmed) return
 
     setProcessing(true)
     try {
@@ -222,142 +235,47 @@ export default function SettlementPage() {
     }
   }
 
+  const selectedSummary = selected.size > 0 ? {
+    count: selected.size,
+    payeeCount: new Set(selectedRequests.map(payeeKey)).size,
+    amount: selectedRequests.reduce((sum, r) => sum + r.totalAmount, 0).toLocaleString(),
+  } : null
+
+  const includedTotal = includedRequests.reduce((sum, r) => sum + r.totalAmount, 0)
+
   // ── Summary phase ──
   if (reviewPhase === 'summary') {
-    const includedTotal = includedRequests.reduce((sum, r) => sum + r.totalAmount, 0)
     return (
       <Layout>
-        <div className="max-w-2xl mx-auto">
-          <h2 className="text-xl font-bold mb-6">{t('settlement.reviewSummary')}</h2>
-
-          <div className="bg-white rounded-lg shadow p-6 mb-6 space-y-4">
-            <div className="flex justify-between text-sm">
-              <span className="text-green-700 font-medium">{t('settlement.includedCount', { count: reviewedIds.size })}</span>
-              <span className="text-red-600 font-medium">{t('settlement.rejectedCount', { count: rejectedIds.size })}</span>
-            </div>
-            <div className="text-right text-lg font-bold">
-              {t('field.totalAmount')}: ₩{includedTotal.toLocaleString()}
-            </div>
-
-            {includedRequests.length > 0 && (
-              <div className="border-t pt-4">
-                <h3 className="text-sm font-medium text-gray-600 mb-2">{t('settlement.includedCount', { count: reviewedIds.size })}</h3>
-                <ul className="text-sm space-y-1">
-                  {includedRequests.map(r => (
-                    <li key={r.id} className="flex justify-between">
-                      <span>{r.payee} — {r.date}</span>
-                      <span>₩{r.totalAmount.toLocaleString()}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-
-          <div className="flex gap-3">
-            <button onClick={backToSelect}
-              className="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50">
-              {t('settlement.backToSelect')}
-            </button>
-            <button onClick={handleFinalSettle}
-              disabled={reviewedIds.size === 0 || processing}
-              className="flex-1 bg-purple-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-purple-700 disabled:bg-gray-400">
-              {processing ? t('settlement.processing') : t('settlement.finalSettle')}
-            </button>
-          </div>
-        </div>
+        <SettlementSummary
+          groupedByPayee={groupedByPayee}
+          reviewedCount={reviewedIds.size}
+          rejectedCount={rejectedIds.size}
+          includedTotal={includedTotal}
+          processing={processing}
+          onSettle={handleFinalSettle}
+          onBack={backToSelect}
+        />
       </Layout>
     )
   }
 
   // ── Review phase ──
   if (reviewPhase === 'review' && currentReviewRequest) {
-    const req = currentReviewRequest
-    const bankBookUrl = currentRequester?.bankBookUrl || currentRequester?.bankBookDriveUrl
-
     return (
       <Layout>
-        <div className="max-w-3xl mx-auto">
-          {/* Progress header */}
-          <div className="flex items-center justify-between mb-6">
-            <button onClick={backToSelect} className="text-sm text-gray-500 hover:text-gray-700">
-              {t('settlement.backToSelect')}
-            </button>
-            <span className="text-sm font-medium text-gray-600">
-              {t('settlement.reviewProgress', { current: reviewIndex + 1, total: selectedRequests.length })}
-            </span>
-          </div>
-
-          {/* Progress bar */}
-          <div className="w-full bg-gray-200 rounded-full h-1.5 mb-6">
-            <div className="bg-purple-600 h-1.5 rounded-full transition-all"
-              style={{ width: `${((reviewIndex + 1) / selectedRequests.length) * 100}%` }} />
-          </div>
-
-          {/* Request detail card */}
-          <div className="bg-white rounded-lg shadow p-6 mb-6">
-            <h3 className="text-lg font-bold mb-4">{req.payee}</h3>
-
-            <InfoGrid className="mb-6" items={[
-              { label: t('field.payee'), value: req.payee },
-              { label: t('field.date'), value: req.date },
-              { label: t('field.phone'), value: req.phone },
-              { label: t('field.session'), value: req.session },
-              { label: t('field.bankAndAccount'), value: `${req.bankName} ${req.bankAccount}` },
-              { label: t('field.committee'), value: req.committee === 'operations' ? t('committee.operations') : t('committee.preparation') },
-            ]} />
-
-            <ItemsTable items={req.items} totalAmount={req.totalAmount} />
-
-            <ReceiptGallery receipts={req.receipts} />
-
-            {/* Bank Book */}
-            {bankBookUrl && (
-              <div className="mb-6">
-                <h3 className="text-sm font-medium text-gray-700 mb-3">{t('field.bankBook')}</h3>
-                <div className="border border-gray-200 rounded-lg overflow-hidden inline-block">
-                  <a href={bankBookUrl} target="_blank" rel="noopener noreferrer">
-                    <img src={bankBookUrl} alt={t('field.bankBook')} className="max-h-48 object-contain bg-gray-50" />
-                  </a>
-                  <div className="px-3 py-2 bg-gray-50 border-t">
-                    <a href={bankBookUrl} target="_blank" rel="noopener noreferrer"
-                      className="text-xs text-blue-600 hover:underline">{t('settings.bankBookViewDrive')}</a>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Meta info */}
-            <InfoGrid className="border-t pt-4" items={[
-              { label: t('field.requestedBy'), value: `${req.requestedBy.name} (${req.requestedBy.email})` },
-              ...(req.reviewedBy ? [{ label: t('approval.reviewedBy'), value: `${req.reviewedBy.name} (${req.reviewedBy.email})` }] : []),
-              { label: t('field.approvedBy'), value: req.approvedBy ? `${req.approvedBy.name} (${req.approvedBy.email})` : '-' },
-            ]} />
-          </div>
-
-          {/* Action buttons */}
-          <div className="flex gap-3">
-            <button
-              onClick={() => setRejectingRequestId(req.id)}
-              className="flex-1 bg-red-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-red-700"
-            >
-              {t('approval.reject')}
-            </button>
-            <button
-              onClick={handleConfirmInclude}
-              className="flex-1 bg-green-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-green-700"
-            >
-              {t('settlement.confirmInclude')}
-            </button>
-          </div>
-        </div>
-
-        <ForceRejectionModal
-          key={rejectingRequestId ?? ''}
-          open={!!rejectingRequestId}
-          onClose={() => setRejectingRequestId(null)}
-          onConfirm={handleRejectConfirm}
-          isPending={forceRejectMutation.isPending}
+        <SettlementReviewStep
+          request={currentReviewRequest}
+          requester={currentRequester}
+          reviewIndex={reviewIndex}
+          total={reviewSnapshot.length}
+          rejectingRequestId={rejectingRequestId}
+          forceRejectPending={forceRejectMutation.isPending}
+          onInclude={handleConfirmInclude}
+          onReject={(id) => setRejectingRequestId(id)}
+          onRejectConfirm={handleRejectConfirm}
+          onRejectClose={() => setRejectingRequestId(null)}
+          onBack={backToSelect}
         />
       </Layout>
     )
@@ -366,80 +284,16 @@ export default function SettlementPage() {
   // ── Select phase (default list view) ──
   return (
     <Layout>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-xl font-bold">{t('settlement.title')}</h2>
-          <p className="text-sm text-gray-500 mt-1">{t('settlement.description')}</p>
-        </div>
-        <button onClick={startReview} disabled={selected.size === 0}
-          className="bg-purple-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-purple-700 disabled:bg-gray-400">
-          {t('settlement.startReview', { count: selected.size })}
-        </button>
-      </div>
-
-      <BudgetWarningBanner budgetUsage={budgetUsage} className="mb-4" />
-
-      {selected.size > 0 && (
-        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4 text-sm">
-          {t('settlement.selectedSummary', {
-            count: selected.size,
-            payeeCount: Object.keys(
-              selectedRequests.reduce<Record<string, boolean>>((acc, req) => {
-                const key = `${req.requestedBy.uid}|${req.bankName}|${req.bankAccount}|${req.committee}|${req.session}`
-                acc[key] = true
-                return acc
-              }, {})
-            ).length,
-            amount: selectedRequests.reduce((sum, r) => sum + r.totalAmount, 0).toLocaleString(),
-          })}
-        </div>
-      )}
-
-      {loading ? (
-        <Spinner />
-      ) : requests.length === 0 ? (
-        <p className="text-gray-500">{t('settlement.noApproved')}</p>
-      ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="px-4 py-3 w-10">
-                  <input type="checkbox"
-                    checked={requests.length > 0 && selected.size === requests.length}
-                    onChange={toggleAll} />
-                </th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">{t('field.date')}</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">{t('field.payee')}</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">{t('field.committee')}</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-600">{t('field.items')}</th>
-                <th className="text-right px-4 py-3 font-medium text-gray-600">{t('field.totalAmount')}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {requests.map((req, index) => (
-                <tr key={req.id}
-                  className={`hover:bg-gray-50 cursor-pointer select-none ${selected.has(req.id) ? 'bg-purple-50' : ''}`}
-                  onClick={(e) => handleRowClick(req.id, index, e)}
-                >
-                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                    <input type="checkbox" checked={selected.has(req.id)}
-                      onChange={(e) => handleRowClick(req.id, index, e as unknown as React.MouseEvent)} />
-                  </td>
-                  <td className="px-4 py-3">{req.date}</td>
-                  <td className="px-4 py-3">{req.payee}</td>
-                  <td className="px-4 py-3">{req.committee === 'operations' ? t('committee.operationsShort') : t('committee.preparationShort')}</td>
-                  <td className="px-4 py-3">{t('form.itemCount', { count: req.items.length })}</td>
-                  <td className="px-4 py-3 text-right">₩{req.totalAmount.toLocaleString()}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div className="px-4 py-2 bg-gray-50 border-t text-xs text-gray-400">
-            Shift+Click: {t('settlement.shiftSelectHint')}
-          </div>
-        </div>
-      )}
+      <SettlementSelectTable
+        requests={requests}
+        selected={selected}
+        loading={loading}
+        budgetUsage={budgetUsage}
+        selectedSummary={selectedSummary}
+        onRowClick={handleRowClick}
+        onToggleAll={toggleAll}
+        onStartReview={startReview}
+      />
     </Layout>
   )
 }

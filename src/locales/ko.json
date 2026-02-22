@@ -42,6 +42,7 @@
     "backToList": "← 목록으로",
     "submit": "제출",
     "submitting": "제출 중...",
+    "processingMessage": "처리 중입니다. 잠시 기다려주세요.",
     "noData": "데이터가 없습니다.",
     "loadError": "데이터를 불러오는 중 오류가 발생했습니다.",
     "required": "*"
@@ -211,6 +212,7 @@
     "reviewSummary": "검토 요약",
     "finalSettle": "최종 정산 처리",
     "backToSelect": "← 목록으로 돌아가기",
+    "backToSelectConfirm": "검토 진행 상태가 초기화됩니다. 돌아가시겠습니까?",
     "includedCount": "포함 {{count}}건",
     "rejectedCount": "반려 {{count}}건"
   },

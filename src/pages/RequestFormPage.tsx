@@ -8,6 +8,7 @@ import { useCreateRequest, useMyRequests } from '../hooks/queries/useRequests'
 import { useUploadReceipts } from '../hooks/queries/useCloudFunctions'
 import { RequestItem, Receipt, Committee } from '../types'
 import Layout from '../components/Layout'
+import ProcessingOverlay from '../components/ProcessingOverlay'
 import ItemRow from '../components/ItemRow'
 import ErrorAlert from '../components/ErrorAlert'
 import FileUpload from '../components/FileUpload'
@@ -381,6 +382,8 @@ export default function RequestFormPage() {
         requestItems={validItems}
         receiptFiles={files}
       />
+
+      <ProcessingOverlay open={submitting} text={t('common.processingMessage')} />
 
       {/* 페이지 이동 확인 모달 */}
       {blocker.state === 'blocked' && (

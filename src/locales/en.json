@@ -42,6 +42,7 @@
     "backToList": "← Back to list",
     "submit": "Submit",
     "submitting": "Submitting...",
+    "processingMessage": "Processing. Please wait.",
     "noData": "No data available.",
     "loadError": "An error occurred while loading data.",
     "required": "*"
@@ -211,6 +212,7 @@
     "reviewSummary": "Review Summary",
     "finalSettle": "Final Settlement",
     "backToSelect": "← Back to Selection",
+    "backToSelectConfirm": "Review progress will be lost. Go back?",
     "includedCount": "Included {{count}}",
     "rejectedCount": "Rejected {{count}}"
   },

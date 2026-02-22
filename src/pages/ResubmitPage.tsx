@@ -8,6 +8,7 @@ import { useRequest, useCreateRequest } from '../hooks/queries/useRequests'
 import { useUploadReceipts } from '../hooks/queries/useCloudFunctions'
 import { RequestItem, Receipt, Committee } from '../types'
 import Layout from '../components/Layout'
+import ProcessingOverlay from '../components/ProcessingOverlay'
 import ItemRow from '../components/ItemRow'
 import FileUpload from '../components/FileUpload'
 import CommitteeSelect from '../components/CommitteeSelect'
@@ -282,6 +283,8 @@ export default function ResubmitPage() {
           </button>
         </div>
       </form>
+
+      <ProcessingOverlay open={submitting} text={t('common.processingMessage')} />
 
       <ConfirmModal
         open={showConfirm}
