@@ -164,7 +164,7 @@ function ProjectManagement() {
 export default function SettingsPage() {
   const { t } = useTranslation()
   const { appUser } = useAuth()
-  const isAdmin = appUser?.role === 'admin'
+  const isAdmin = appUser?.role === 'admin' || appUser?.role === 'super_admin'
   const [tab, setTab] = useState<'personal' | 'project'>(isAdmin ? 'project' : 'personal')
 
   const tabs = [

@@ -17,6 +17,8 @@ import ConfirmModal from '../components/ConfirmModal'
 import { useTranslation } from 'react-i18next'
 import { formatPhone, formatBankAccount, fileToBase64 } from '../lib/utils'
 import BankSelect from '../components/BankSelect'
+import ReviewChecklist from '../components/ReviewChecklist'
+import { SUBMISSION_CHECKLIST } from '../constants/reviewChecklist'
 
 const DRAFT_KEY = 'request-form-draft'
 const emptyItem = (): RequestItem => ({ description: '', budgetCode: 0, amount: 0 })
@@ -283,7 +285,13 @@ export default function RequestFormPage() {
         </div>
       )}
 
-      <form onSubmit={handlePreSubmit} className="bg-white rounded-lg shadow p-4 sm:p-6 max-w-4xl mx-auto">
+      {/* Mobile: collapsible submission checklist */}
+      <div className="sm:hidden mb-4 max-w-4xl mx-auto">
+        <ReviewChecklist items={SUBMISSION_CHECKLIST} stage="submission" />
+      </div>
+
+      <div className="flex gap-6 justify-center">
+      <form onSubmit={handlePreSubmit} className="bg-white rounded-lg shadow p-4 sm:p-6 max-w-4xl flex-1 min-w-0">
         <h2 className="text-xl font-bold mb-1">{t('form.title')}</h2>
         <p className="text-sm text-gray-500 mb-6">{t('form.subtitle')}</p>
 
@@ -370,6 +378,12 @@ export default function RequestFormPage() {
           </button>
         </div>
       </form>
+
+      {/* Desktop: sticky sidebar submission checklist */}
+      <div className="hidden sm:block shrink-0">
+        <ReviewChecklist items={SUBMISSION_CHECKLIST} stage="submission" />
+      </div>
+      </div>
 
       <ConfirmModal
         open={showConfirm}

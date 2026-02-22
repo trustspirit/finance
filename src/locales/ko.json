@@ -357,6 +357,21 @@
       "participationFee": "참가비"
     }
   },
+  "checklist": {
+    "title": "확인사항 가이드",
+    "receiptsMatchItems": "영수증이 항목 내용과 일치하는지",
+    "amountsCorrect": "영수증 금액과 신청 금액이 일치하는지",
+    "budgetCodesValid": "예산 코드가 적절한지",
+    "bankBookMatches": "통장사본이 계좌정보와 일치하는지",
+    "itemsAppropriate": "항목과 금액이 적절한지",
+    "budgetSufficient": "예산 잔액이 충분한지",
+    "approvalSignatureExists": "승인 서명이 있는지",
+    "bankBookNameMatches": "통장사본의 이름, 은행 및 계좌번호가 신청 내용과 일치하는지",
+    "bankBookCorrect": "통장사본이 최신 상태인지",
+    "confirmReview": "모든 확인사항을 검토하셨습니까?",
+    "expand": "펼치기",
+    "collapse": "접기"
+  },
   "receipts": {
     "title": "영수증 관리",
     "totalCount": "총 {{count}}건",

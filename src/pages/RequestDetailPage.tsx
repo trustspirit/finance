@@ -16,6 +16,9 @@ import ItemsTable from '../components/ItemsTable'
 import ReceiptGallery from '../components/ReceiptGallery'
 import { ApprovalModal, RejectionModal } from '../components/AdminRequestModals'
 import StatusProgress from '../components/StatusProgress'
+import ReviewChecklist from '../components/ReviewChecklist'
+import Modal from '../components/Modal'
+import { REVIEW_CHECKLIST, APPROVAL_CHECKLIST } from '../constants/reviewChecklist'
 
 export default function RequestDetailPage() {
   const { t } = useTranslation()
@@ -41,6 +44,7 @@ export default function RequestDetailPage() {
 
   const [showApprovalModal, setShowApprovalModal] = useState(false)
   const [showRejectionModal, setShowRejectionModal] = useState(false)
+  const [showReviewConfirm, setShowReviewConfirm] = useState(false)
   const [slideState, setSlideState] = useState<'idle' | 'out' | 'in'>('idle')
   const isFirstMount = useRef(true)
 
@@ -117,9 +121,18 @@ export default function RequestDetailPage() {
     (request?.status === 'reviewed' && !isSelf && canFinalApproveCommittee(role, request.committee)
       && (!isDirectorRequest || canApproveDirectorRequest(role)))
 
+  const showChecklist = canDoReview || canDoApprove
+  const checklistItems = canDoReview ? REVIEW_CHECKLIST : APPROVAL_CHECKLIST
+
   const handleReview = () => {
     if (!user || !appUser || !request) return
     if (isSelf) { alert(t('approval.selfReviewError')); return }
+    setShowReviewConfirm(true)
+  }
+
+  const handleReviewConfirm = () => {
+    if (!user || !appUser || !request) return
+    setShowReviewConfirm(false)
     const name = appUser.displayName || appUser.name
     reviewMutation.mutate(
       { requestId: request.id, projectId: currentProject!.id, reviewer: { uid: user.uid, name, email: appUser.email } },
@@ -167,8 +180,16 @@ export default function RequestDetailPage() {
 
   return (
     <Layout>
-      <div className="overflow-hidden">
-      <div className={`bg-white rounded-lg shadow p-4 sm:p-6 max-w-4xl mx-auto ${
+      {/* Mobile: collapsible checklist banner */}
+      {showChecklist && (
+        <div className="sm:hidden mb-4">
+          <ReviewChecklist items={checklistItems} stage={canDoReview ? 'review' : 'approval'} />
+        </div>
+      )}
+
+      <div className="flex gap-6 justify-center">
+      <div className="flex-1 min-w-0 overflow-hidden max-w-4xl">
+      <div className={`bg-white rounded-lg shadow p-4 sm:p-6 ${
         slideState === 'idle'
           ? 'transition-all duration-300 ease-in-out translate-x-0 opacity-100'
           : slideState === 'out'
@@ -350,6 +371,29 @@ export default function RequestDetailPage() {
 
       </div>
       </div>
+
+      {/* Desktop: sticky sidebar checklist */}
+      {showChecklist && (
+        <div className="hidden sm:block shrink-0">
+          <ReviewChecklist items={checklistItems} stage={canDoReview ? 'review' : 'approval'} />
+        </div>
+      )}
+      </div>
+
+      {/* Review confirm modal */}
+      <Modal open={showReviewConfirm} onClose={() => setShowReviewConfirm(false)} title={t('checklist.confirmReview')}>
+        <p className="text-sm text-gray-600 mb-6">{t('checklist.confirmReview')}</p>
+        <div className="flex gap-3 justify-end">
+          <button onClick={() => setShowReviewConfirm(false)}
+            className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-50">
+            {t('common.cancel')}
+          </button>
+          <button onClick={handleReviewConfirm}
+            className="px-4 py-2 text-sm text-white bg-blue-600 rounded hover:bg-blue-700">
+            {t('approval.review')}
+          </button>
+        </div>
+      </Modal>
 
       <ApprovalModal
         key={showApprovalModal ? 'open' : 'closed'}

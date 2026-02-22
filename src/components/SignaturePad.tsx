@@ -1,5 +1,9 @@
-import { useRef, useEffect, useState, useCallback } from 'react'
+import { useRef, useEffect, useState, useCallback, useImperativeHandle, forwardRef } from 'react'
 import { useTranslation } from 'react-i18next'
+
+export interface SignaturePadRef {
+  clear: () => void
+}
 
 interface Props {
   width?: number
@@ -8,7 +12,7 @@ interface Props {
   onChange?: (dataUrl: string) => void
 }
 
-export default function SignaturePad({ width = 400, height = 150, initialData, onChange }: Props) {
+const SignaturePad = forwardRef<SignaturePadRef, Props>(function SignaturePad({ width = 400, height = 150, initialData, onChange }, ref) {
   const { t } = useTranslation()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [isDrawing, setIsDrawing] = useState(false)
@@ -111,6 +115,8 @@ export default function SignaturePad({ width = 400, height = 150, initialData, o
     onChange?.('')
   }
 
+  useImperativeHandle(ref, () => ({ clear }), [clear]) // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <div>
       <div className="border border-gray-300 rounded inline-block" style={{ touchAction: 'none' }}>
@@ -129,13 +135,9 @@ export default function SignaturePad({ width = 400, height = 150, initialData, o
           onTouchEnd={endDraw}
         />
       </div>
-      <div className="flex items-center gap-3 mt-2">
-        <button type="button" onClick={clear}
-          className="text-xs text-gray-500 hover:text-gray-700">
-          {t('common.delete')}
-        </button>
-        {isEmpty && <span className="text-xs text-gray-400">{t('approval.signDescription')}</span>}
-      </div>
+      {isEmpty && <p className="text-xs text-gray-400 mt-1">{t('approval.signDescription')}</p>}
     </div>
   )
-}
+})
+
+export default SignaturePad

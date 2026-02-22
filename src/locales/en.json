@@ -357,6 +357,21 @@
       "participationFee": "Participation Fee"
     }
   },
+  "checklist": {
+    "title": "Review Guide",
+    "receiptsMatchItems": "Receipts match line items",
+    "amountsCorrect": "Amounts are correct",
+    "budgetCodesValid": "Budget codes are valid",
+    "bankBookMatches": "Bank book matches account info",
+    "itemsAppropriate": "Items and amounts are appropriate",
+    "budgetSufficient": "Budget balance is sufficient",
+    "approvalSignatureExists": "Approval signature exists",
+    "bankBookNameMatches": "Name, bank, and account number on bank book match the request",
+    "bankBookCorrect": "Bank book copy is up to date",
+    "confirmReview": "Have you reviewed all items?",
+    "expand": "Expand",
+    "collapse": "Collapse"
+  },
   "receipts": {
     "title": "Receipt Management",
     "totalCount": "{{count}} total",

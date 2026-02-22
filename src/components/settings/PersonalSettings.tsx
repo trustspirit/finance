@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../../hooks/queries/queryKeys'
@@ -6,7 +6,7 @@ import { formatPhone, formatBankAccount, fileToBase64, validateBankBookFile } fr
 import BankSelect from '../BankSelect'
 import { useAuth } from '../../contexts/AuthContext'
 import { Committee } from '../../types'
-import SignaturePad from '../SignaturePad'
+import SignaturePad, { SignaturePadRef } from '../SignaturePad'
 import CommitteeSelect from '../CommitteeSelect'
 import { useUploadBankBook } from '../../hooks/queries/useCloudFunctions'
 
@@ -24,7 +24,13 @@ export default function PersonalSettings() {
   const [bankBookFile, setBankBookFile] = useState<File | null>(null)
   const [uploadingBankBook, setUploadingBankBook] = useState(false)
   const [bankBookError, setBankBookError] = useState<string | null>(null)
+  const signaturePadRef = useRef<SignaturePadRef>(null)
   const hasBankBook = !!(appUser?.bankBookUrl || appUser?.bankBookDriveUrl)
+
+  const handleResetSignature = useCallback(() => {
+    signaturePadRef.current?.clear()
+    setSignature('')
+  }, [])
 
   // Re-format account number when bank changes
   const bankNameMounted = useRef(false)
@@ -125,8 +131,18 @@ export default function PersonalSettings() {
         <p className="text-xs text-gray-400 mt-1">{t('settings.committeeHint')}</p>
       </div>
       <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-1">{t('field.signature')}</label>
-        <SignaturePad initialData={signature} onChange={setSignature} />
+        <div className="flex items-center gap-1.5 mb-1">
+          <label className="text-sm font-medium text-gray-700">{t('field.signature')}</label>
+          {signature && (
+            <button type="button" onClick={handleResetSignature}
+              className="text-red-500 hover:text-red-700" title={t('common.delete')}>
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+          )}
+        </div>
+        <SignaturePad ref={signaturePadRef} initialData={signature} onChange={setSignature} />
         <p className="text-xs text-gray-400 mt-1">{t('settings.signatureHint')}</p>
       </div>
       <div className="flex items-center gap-3">
