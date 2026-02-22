@@ -204,7 +204,15 @@
     "report": "리포트",
     "selectedSummary": "{{count}}건 선택 | 신청자 {{payeeCount}}명 | 총액 ₩{{amount}}",
     "settlementDate": "정산일",
-    "shiftSelectHint": "범위 선택"
+    "shiftSelectHint": "범위 선택",
+    "startReview": "정산 검토 시작 ({{count}}건)",
+    "reviewProgress": "{{current}} / {{total}} 건 검토 중",
+    "confirmInclude": "포함 확정",
+    "reviewSummary": "검토 요약",
+    "finalSettle": "최종 정산 처리",
+    "backToSelect": "← 목록으로 돌아가기",
+    "includedCount": "포함 {{count}}건",
+    "rejectedCount": "반려 {{count}}건"
   },
   "dashboard": {
     "title": "대시보드",

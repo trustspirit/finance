@@ -6,14 +6,20 @@ import { db } from '../lib/firebase'
 import { useAuth } from '../contexts/AuthContext'
 import { useProject } from '../contexts/ProjectContext'
 import { PaymentRequest, AppUser } from '../types'
-import { canSeeCommitteeRequests, canForceReject } from '../lib/roles'
+import { canSeeCommitteeRequests } from '../lib/roles'
 import { useApprovedRequests, useForceRejectRequest } from '../hooks/queries/useRequests'
 import { useCreateSettlement } from '../hooks/queries/useSettlements'
+import { useUser } from '../hooks/queries/useUsers'
 import { useBudgetUsage } from '../hooks/useBudgetUsage'
 import Layout from '../components/Layout'
 import Spinner from '../components/Spinner'
 import BudgetWarningBanner from '../components/BudgetWarningBanner'
+import InfoGrid from '../components/InfoGrid'
+import ItemsTable from '../components/ItemsTable'
+import ReceiptGallery from '../components/ReceiptGallery'
 import { ForceRejectionModal } from '../components/AdminRequestModals'
+
+type ReviewPhase = 'select' | 'review' | 'summary'
 
 export default function SettlementPage() {
   const { t } = useTranslation()
@@ -24,18 +30,33 @@ export default function SettlementPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [processing, setProcessing] = useState(false)
   const [lastClickedIndex, setLastClickedIndex] = useState<number | null>(null)
-  const [forceRejectRequestId, setForceRejectRequestId] = useState<string | null>(null)
+
+  // Review mode state
+  const [reviewPhase, setReviewPhase] = useState<ReviewPhase>('select')
+  const [reviewIndex, setReviewIndex] = useState(0)
+  const [reviewedIds, setReviewedIds] = useState<Set<string>>(new Set())
+  const [rejectedIds, setRejectedIds] = useState<Set<string>>(new Set())
+  const [rejectingRequestId, setRejectingRequestId] = useState<string | null>(null)
 
   const { data: allRequests = [], isLoading: loading } = useApprovedRequests(currentProject?.id)
   const createSettlementMutation = useCreateSettlement()
   const forceRejectMutation = useForceRejectRequest()
   const budgetUsage = useBudgetUsage()
 
-  const showForceReject = canForceReject(role)
-
   const requests = useMemo(
     () => allRequests.filter(r => canSeeCommitteeRequests(role, r.committee)),
     [allRequests, role]
+  )
+
+  const selectedRequests = useMemo(
+    () => requests.filter((r) => selected.has(r.id)),
+    [requests, selected]
+  )
+
+  // Current request being reviewed
+  const currentReviewRequest = selectedRequests[reviewIndex] as PaymentRequest | undefined
+  const { data: currentRequester } = useUser(
+    reviewPhase === 'review' ? currentReviewRequest?.requestedBy.uid : undefined
   )
 
   const handleRowClick = useCallback((id: string, index: number, e: React.MouseEvent) => {
@@ -68,39 +89,73 @@ export default function SettlementPage() {
     }
   }
 
-  const selectedRequests = requests.filter((r) => selected.has(r.id))
+  const startReview = () => {
+    if (selected.size === 0) return
+    setReviewIndex(0)
+    setReviewedIds(new Set())
+    setRejectedIds(new Set())
+    setReviewPhase('review')
+  }
 
-  const groupedByPayee = selectedRequests.reduce<Record<string, PaymentRequest[]>>((acc, req) => {
+  const advanceReview = () => {
+    if (reviewIndex < selectedRequests.length - 1) {
+      setReviewIndex(reviewIndex + 1)
+    } else {
+      setReviewPhase('summary')
+    }
+  }
+
+  const handleConfirmInclude = () => {
+    if (!currentReviewRequest) return
+    setReviewedIds(prev => new Set(prev).add(currentReviewRequest.id))
+    advanceReview()
+  }
+
+  const handleRejectConfirm = (reason: string) => {
+    if (!user || !appUser || !rejectingRequestId) return
+    const approverName = appUser.displayName || appUser.name
+    forceRejectMutation.mutate(
+      {
+        requestId: rejectingRequestId,
+        projectId: currentProject!.id,
+        approver: { uid: user.uid, name: approverName, email: appUser.email },
+        rejectionReason: reason,
+      },
+      {
+        onSuccess: () => {
+          setRejectedIds(prev => new Set(prev).add(rejectingRequestId))
+          setRejectingRequestId(null)
+          advanceReview()
+        },
+      },
+    )
+  }
+
+  const backToSelect = () => {
+    setReviewPhase('select')
+    setReviewIndex(0)
+    setReviewedIds(new Set())
+    setRejectedIds(new Set())
+  }
+
+  // For final settlement, only use reviewed (included) requests
+  const includedRequests = selectedRequests.filter(r => reviewedIds.has(r.id))
+
+  const groupedByPayee = includedRequests.reduce<Record<string, PaymentRequest[]>>((acc, req) => {
     const key = `${req.requestedBy.uid}|${req.bankName}|${req.bankAccount}|${req.committee}|${req.session}`
     if (!acc[key]) acc[key] = []
     acc[key].push(req)
     return acc
   }, {})
 
-  const handleForceRejectConfirm = (reason: string) => {
-    if (!user || !appUser || !forceRejectRequestId) return
-    const approverName = appUser.displayName || appUser.name
-    forceRejectMutation.mutate(
-      {
-        requestId: forceRejectRequestId,
-        projectId: currentProject!.id,
-        approver: { uid: user.uid, name: approverName, email: appUser.email },
-        rejectionReason: reason,
-      },
-      { onSuccess: () => setForceRejectRequestId(null) },
-    )
-  }
-
-  const handleSettle = async () => {
-    if (!user || !appUser || !currentProject || selected.size === 0) return
-    const confirmed = window.confirm(t('settlement.settleConfirm', { count: selected.size, payeeCount: Object.keys(groupedByPayee).length }))
-    if (!confirmed) return
+  const handleFinalSettle = async () => {
+    if (!user || !appUser || !currentProject || reviewedIds.size === 0) return
 
     setProcessing(true)
     try {
       const creatorName = appUser.displayName || appUser.name
 
-      const missingApproval = selectedRequests.find((r) => !r.approvalSignature || !r.approvedBy)
+      const missingApproval = includedRequests.find((r) => !r.approvalSignature || !r.approvedBy)
       if (missingApproval) {
         alert(t('settlement.settleFailed') + ': ' + missingApproval.payee + ' - missing approval signature')
         setProcessing(false)
@@ -167,6 +222,148 @@ export default function SettlementPage() {
     }
   }
 
+  // ── Summary phase ──
+  if (reviewPhase === 'summary') {
+    const includedTotal = includedRequests.reduce((sum, r) => sum + r.totalAmount, 0)
+    return (
+      <Layout>
+        <div className="max-w-2xl mx-auto">
+          <h2 className="text-xl font-bold mb-6">{t('settlement.reviewSummary')}</h2>
+
+          <div className="bg-white rounded-lg shadow p-6 mb-6 space-y-4">
+            <div className="flex justify-between text-sm">
+              <span className="text-green-700 font-medium">{t('settlement.includedCount', { count: reviewedIds.size })}</span>
+              <span className="text-red-600 font-medium">{t('settlement.rejectedCount', { count: rejectedIds.size })}</span>
+            </div>
+            <div className="text-right text-lg font-bold">
+              {t('field.totalAmount')}: ₩{includedTotal.toLocaleString()}
+            </div>
+
+            {includedRequests.length > 0 && (
+              <div className="border-t pt-4">
+                <h3 className="text-sm font-medium text-gray-600 mb-2">{t('settlement.includedCount', { count: reviewedIds.size })}</h3>
+                <ul className="text-sm space-y-1">
+                  {includedRequests.map(r => (
+                    <li key={r.id} className="flex justify-between">
+                      <span>{r.payee} — {r.date}</span>
+                      <span>₩{r.totalAmount.toLocaleString()}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-3">
+            <button onClick={backToSelect}
+              className="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50">
+              {t('settlement.backToSelect')}
+            </button>
+            <button onClick={handleFinalSettle}
+              disabled={reviewedIds.size === 0 || processing}
+              className="flex-1 bg-purple-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-purple-700 disabled:bg-gray-400">
+              {processing ? t('settlement.processing') : t('settlement.finalSettle')}
+            </button>
+          </div>
+        </div>
+      </Layout>
+    )
+  }
+
+  // ── Review phase ──
+  if (reviewPhase === 'review' && currentReviewRequest) {
+    const req = currentReviewRequest
+    const bankBookUrl = currentRequester?.bankBookUrl || currentRequester?.bankBookDriveUrl
+
+    return (
+      <Layout>
+        <div className="max-w-3xl mx-auto">
+          {/* Progress header */}
+          <div className="flex items-center justify-between mb-6">
+            <button onClick={backToSelect} className="text-sm text-gray-500 hover:text-gray-700">
+              {t('settlement.backToSelect')}
+            </button>
+            <span className="text-sm font-medium text-gray-600">
+              {t('settlement.reviewProgress', { current: reviewIndex + 1, total: selectedRequests.length })}
+            </span>
+          </div>
+
+          {/* Progress bar */}
+          <div className="w-full bg-gray-200 rounded-full h-1.5 mb-6">
+            <div className="bg-purple-600 h-1.5 rounded-full transition-all"
+              style={{ width: `${((reviewIndex + 1) / selectedRequests.length) * 100}%` }} />
+          </div>
+
+          {/* Request detail card */}
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
+            <h3 className="text-lg font-bold mb-4">{req.payee}</h3>
+
+            <InfoGrid className="mb-6" items={[
+              { label: t('field.payee'), value: req.payee },
+              { label: t('field.date'), value: req.date },
+              { label: t('field.phone'), value: req.phone },
+              { label: t('field.session'), value: req.session },
+              { label: t('field.bankAndAccount'), value: `${req.bankName} ${req.bankAccount}` },
+              { label: t('field.committee'), value: req.committee === 'operations' ? t('committee.operations') : t('committee.preparation') },
+            ]} />
+
+            <ItemsTable items={req.items} totalAmount={req.totalAmount} />
+
+            <ReceiptGallery receipts={req.receipts} />
+
+            {/* Bank Book */}
+            {bankBookUrl && (
+              <div className="mb-6">
+                <h3 className="text-sm font-medium text-gray-700 mb-3">{t('field.bankBook')}</h3>
+                <div className="border border-gray-200 rounded-lg overflow-hidden inline-block">
+                  <a href={bankBookUrl} target="_blank" rel="noopener noreferrer">
+                    <img src={bankBookUrl} alt={t('field.bankBook')} className="max-h-48 object-contain bg-gray-50" />
+                  </a>
+                  <div className="px-3 py-2 bg-gray-50 border-t">
+                    <a href={bankBookUrl} target="_blank" rel="noopener noreferrer"
+                      className="text-xs text-blue-600 hover:underline">{t('settings.bankBookViewDrive')}</a>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Meta info */}
+            <InfoGrid className="border-t pt-4" items={[
+              { label: t('field.requestedBy'), value: `${req.requestedBy.name} (${req.requestedBy.email})` },
+              ...(req.reviewedBy ? [{ label: t('approval.reviewedBy'), value: `${req.reviewedBy.name} (${req.reviewedBy.email})` }] : []),
+              { label: t('field.approvedBy'), value: req.approvedBy ? `${req.approvedBy.name} (${req.approvedBy.email})` : '-' },
+            ]} />
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex gap-3">
+            <button
+              onClick={() => setRejectingRequestId(req.id)}
+              className="flex-1 bg-red-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-red-700"
+            >
+              {t('approval.reject')}
+            </button>
+            <button
+              onClick={handleConfirmInclude}
+              className="flex-1 bg-green-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-green-700"
+            >
+              {t('settlement.confirmInclude')}
+            </button>
+          </div>
+        </div>
+
+        <ForceRejectionModal
+          key={rejectingRequestId ?? ''}
+          open={!!rejectingRequestId}
+          onClose={() => setRejectingRequestId(null)}
+          onConfirm={handleRejectConfirm}
+          isPending={forceRejectMutation.isPending}
+        />
+      </Layout>
+    )
+  }
+
+  // ── Select phase (default list view) ──
   return (
     <Layout>
       <div className="flex items-center justify-between mb-6">
@@ -174,9 +371,9 @@ export default function SettlementPage() {
           <h2 className="text-xl font-bold">{t('settlement.title')}</h2>
           <p className="text-sm text-gray-500 mt-1">{t('settlement.description')}</p>
         </div>
-        <button onClick={handleSettle} disabled={selected.size === 0 || processing}
+        <button onClick={startReview} disabled={selected.size === 0}
           className="bg-purple-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-purple-700 disabled:bg-gray-400">
-          {processing ? t('settlement.processing') : t('settlement.settle', { count: selected.size })}
+          {t('settlement.startReview', { count: selected.size })}
         </button>
       </div>
 
@@ -184,7 +381,17 @@ export default function SettlementPage() {
 
       {selected.size > 0 && (
         <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4 text-sm">
-          {t('settlement.selectedSummary', { count: selected.size, payeeCount: Object.keys(groupedByPayee).length, amount: selectedRequests.reduce((sum, r) => sum + r.totalAmount, 0).toLocaleString() })}
+          {t('settlement.selectedSummary', {
+            count: selected.size,
+            payeeCount: Object.keys(
+              selectedRequests.reduce<Record<string, boolean>>((acc, req) => {
+                const key = `${req.requestedBy.uid}|${req.bankName}|${req.bankAccount}|${req.committee}|${req.session}`
+                acc[key] = true
+                return acc
+              }, {})
+            ).length,
+            amount: selectedRequests.reduce((sum, r) => sum + r.totalAmount, 0).toLocaleString(),
+          })}
         </div>
       )}
 
@@ -207,9 +414,6 @@ export default function SettlementPage() {
                 <th className="text-left px-4 py-3 font-medium text-gray-600">{t('field.committee')}</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">{t('field.items')}</th>
                 <th className="text-right px-4 py-3 font-medium text-gray-600">{t('field.totalAmount')}</th>
-                {showForceReject && (
-                  <th className="text-center px-4 py-3 font-medium text-gray-600"></th>
-                )}
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -227,16 +431,6 @@ export default function SettlementPage() {
                   <td className="px-4 py-3">{req.committee === 'operations' ? t('committee.operationsShort') : t('committee.preparationShort')}</td>
                   <td className="px-4 py-3">{t('form.itemCount', { count: req.items.length })}</td>
                   <td className="px-4 py-3 text-right">₩{req.totalAmount.toLocaleString()}</td>
-                  {showForceReject && (
-                    <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
-                      <button
-                        onClick={() => setForceRejectRequestId(req.id)}
-                        className="px-2 py-1 text-xs text-orange-600 border border-orange-300 rounded hover:bg-orange-50"
-                      >
-                        {t('approval.reject')}
-                      </button>
-                    </td>
-                  )}
                 </tr>
               ))}
             </tbody>
@@ -246,14 +440,6 @@ export default function SettlementPage() {
           </div>
         </div>
       )}
-
-      <ForceRejectionModal
-        key={forceRejectRequestId ?? ""}
-        open={!!forceRejectRequestId}
-        onClose={() => setForceRejectRequestId(null)}
-        onConfirm={handleForceRejectConfirm}
-        isPending={forceRejectMutation.isPending}
-      />
     </Layout>
   )
 }

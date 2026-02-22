@@ -204,7 +204,15 @@
     "report": "Report",
     "selectedSummary": "{{count}} selected | {{payeeCount}} payees | Total ₩{{amount}}",
     "settlementDate": "Settlement Date",
-    "shiftSelectHint": "range select"
+    "shiftSelectHint": "range select",
+    "startReview": "Start Review ({{count}})",
+    "reviewProgress": "Reviewing {{current}} / {{total}}",
+    "confirmInclude": "Confirm Include",
+    "reviewSummary": "Review Summary",
+    "finalSettle": "Final Settlement",
+    "backToSelect": "← Back to Selection",
+    "includedCount": "Included {{count}}",
+    "rejectedCount": "Rejected {{count}}"
   },
   "dashboard": {
     "title": "Dashboard",
