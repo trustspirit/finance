@@ -77,7 +77,7 @@ export function useUpdateProject() {
   })
 }
 
-export function useDeletedProjects() {
+export function useDeletedProjects(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: queryKeys.projects.deleted(),
     queryFn: async () => {
@@ -87,6 +87,7 @@ export function useDeletedProjects() {
         .map(d => ({ id: d.id, ...d.data() } as Project))
         .filter(p => p.deletedAt)
     },
+    enabled: options?.enabled,
   })
 }
 

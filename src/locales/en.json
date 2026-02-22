@@ -312,6 +312,8 @@
     "deleteConfirm": "Are you sure you want to delete \"{{name}}\"? You can restore it within 30 days.",
     "recentlyDeleted": "Recently Deleted",
     "restore": "Restore",
+    "restoreFailed": "Failed to restore project.",
+    "createFailed": "Failed to create project.",
     "autoDeleteDays": "Auto-delete in {{days}} days"
   },
   "budget": {

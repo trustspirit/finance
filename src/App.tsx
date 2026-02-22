@@ -18,6 +18,7 @@ const AdminRequestsPage = lazy(() => import('./pages/AdminRequestsPage'))
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
 const AdminUsersPage = lazy(() => import('./pages/AdminUsersPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
+const ProfilePage = lazy(() => import('./pages/ProfilePage'))
 const SettlementPage = lazy(() => import('./pages/SettlementPage'))
 const SettlementListPage = lazy(() => import('./pages/SettlementListPage'))
 const SettlementReportPage = lazy(() => import('./pages/SettlementReportPage'))
@@ -45,7 +46,8 @@ const router = createBrowserRouter([
       { path: '/request/:id', element: <ProtectedRoute><RequestDetailPage /></ProtectedRoute> },
       { path: '/my-requests', element: <ProtectedRoute><MyRequestsPage /></ProtectedRoute> },
       { path: '/request/resubmit/:id', element: <ProtectedRoute><ResubmitPage /></ProtectedRoute> },
-      { path: '/settings', element: <ProtectedRoute><SettingsPage /></ProtectedRoute> },
+      { path: '/settings', element: <ProtectedRoute requiredRoles={['super_admin', 'admin']}><SettingsPage /></ProtectedRoute> },
+      { path: '/profile', element: <ProtectedRoute><ProfilePage /></ProtectedRoute> },
       { path: '/admin/requests', element: <ProtectedRoute requiredRoles={['super_admin', 'admin', 'executive', 'session_director', 'logistic_admin', 'finance_prep', 'finance_ops', 'approver_ops', 'approver_prep']}><AdminRequestsPage /></ProtectedRoute> },
       { path: '/admin/dashboard', element: <ProtectedRoute requiredRoles={['super_admin', 'admin', 'executive', 'session_director', 'logistic_admin', 'finance_prep']}><DashboardPage /></ProtectedRoute> },
       { path: '/admin/users', element: <ProtectedRoute requiredRoles={['super_admin', 'admin', 'finance_prep']}><AdminUsersPage /></ProtectedRoute> },

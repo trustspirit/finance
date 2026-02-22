@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import {
+  isAdmin as checkIsAdmin,
   isStaff,
   canAccessDashboard,
   canManageUsers,
@@ -89,6 +90,76 @@ function NavDropdown({
               {item.label}
             </Link>
           ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function UserMenu({
+  userName,
+  role,
+  onLogout,
+  isActive,
+}: {
+  userName: string | undefined;
+  role: string;
+  onLogout: () => void;
+  isActive: (path: string) => boolean;
+}) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-1 px-2 py-1.5 rounded-md text-sm hover:bg-gray-100 transition-colors"
+      >
+        <span className="text-gray-700">
+          {userName}
+          {role !== "user" && (
+            <span className="ml-1.5 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
+              {t(`role.${role}`)}
+            </span>
+          )}
+        </span>
+        <ChevronDownIcon
+          className={`w-3.5 h-3.5 text-gray-400 transition-transform ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open && (
+        <div className="absolute top-full right-0 mt-1 w-44 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
+          <Link
+            to="/profile"
+            onClick={() => setOpen(false)}
+            className={`block px-4 py-2 text-sm transition-colors ${
+              isActive("/profile")
+                ? "bg-blue-50 text-blue-700 font-medium"
+                : "text-gray-700 hover:bg-gray-50"
+            }`}
+          >
+            {t("project.personalSettings")}
+          </Link>
+          <div className="border-t border-gray-100 my-1" />
+          <button
+            onClick={() => {
+              setOpen(false);
+              onLogout();
+            }}
+            className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+          >
+            {t("nav.logout")}
+          </button>
         </div>
       )}
     </div>
@@ -212,28 +283,17 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </div>
 
             {/* Desktop Right */}
-            <div className="hidden lg:flex items-center gap-3">
-              <span className="text-sm text-gray-700">
-                {userName}
-                {role !== "user" && (
-                  <span className="ml-1.5 text-xs bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded">
-                    {t(`role.${role}`)}
-                  </span>
-                )}
-              </span>
-              <Link
-                to="/settings"
-                aria-label={t("nav.settings")}
-                className={`p-2 rounded-md transition-colors ${isActive("/settings") ? "bg-gray-100" : "hover:bg-gray-100"}`}
-              >
-                <GearIcon className="w-4 h-4 text-gray-500" />
-              </Link>
-              <button
-                onClick={logout}
-                className="text-sm text-gray-500 hover:text-gray-700 px-2 py-1 rounded-md hover:bg-gray-100 transition-colors"
-              >
-                {t("nav.logout")}
-              </button>
+            <div className="hidden lg:flex items-center gap-2">
+              {(checkIsAdmin(role)) && (
+                <Link
+                  to="/settings"
+                  aria-label={t("nav.settings")}
+                  className={`p-2 rounded-md transition-colors ${isActive("/settings") ? "bg-gray-100" : "hover:bg-gray-100"}`}
+                >
+                  <GearIcon className="w-4 h-4 text-gray-500" />
+                </Link>
+              )}
+              <UserMenu userName={userName} role={role} onLogout={logout} isActive={isActive} />
             </div>
 
             {/* Mobile Menu Button */}
@@ -296,12 +356,29 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                 </>
               )}
               <div className="border-t border-gray-100 mt-2 pt-2">
+                {(checkIsAdmin(role)) && (
+                  <Link
+                    to="/settings"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`block px-3 py-2.5 text-sm rounded-md ${
+                      isActive("/settings")
+                        ? "bg-blue-50 text-blue-700 font-medium"
+                        : "text-gray-600 hover:bg-gray-50"
+                    }`}
+                  >
+                    {t("project.projectSettings")}
+                  </Link>
+                )}
                 <Link
-                  to="/settings"
+                  to="/profile"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="block px-3 py-2.5 text-sm text-gray-600 hover:bg-gray-50 rounded-md"
+                  className={`block px-3 py-2.5 text-sm rounded-md ${
+                    isActive("/profile")
+                      ? "bg-blue-50 text-blue-700 font-medium"
+                      : "text-gray-600 hover:bg-gray-50"
+                  }`}
                 >
-                  {t("nav.settings")}
+                  {t("project.personalSettings")}
                 </Link>
                 <div className="px-3 py-2 flex items-center justify-between">
                   <span className="text-sm text-gray-500">
