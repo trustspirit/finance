@@ -3,21 +3,6 @@ import { httpsCallable } from 'firebase/functions'
 import { functions } from '../../lib/firebase'
 import type { Receipt } from '../../types'
 
-interface ScanReceiptInput {
-  files: Array<{ name: string; data: string }>
-}
-
-interface ScanReceiptResult {
-  items: Array<{
-    description: string
-    amount: number
-    suggestedBudgetCode: number
-  }>
-  totalAmount: number
-  rawText: string
-  errors?: string[]
-}
-
 interface UploadReceiptsInput {
   files: Array<{ name: string; data: string }>
   committee: string
@@ -53,15 +38,3 @@ export function useUploadBankBook() {
     },
   })
 }
-
-export function useScanReceipts() {
-  return useMutation({
-    mutationFn: async (input: ScanReceiptInput) => {
-      const scanFn = httpsCallable<ScanReceiptInput, ScanReceiptResult>(functions, 'scanReceiptV2')
-      const result = await scanFn(input)
-      return result.data
-    },
-  })
-}
-
-export type { ScanReceiptResult }

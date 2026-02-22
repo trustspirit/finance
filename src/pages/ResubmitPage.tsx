@@ -7,7 +7,6 @@ import { useProject } from '../contexts/ProjectContext'
 import { useRequest, useCreateRequest } from '../hooks/queries/useRequests'
 import { useUploadReceipts } from '../hooks/queries/useCloudFunctions'
 import { RequestItem, Receipt, Committee } from '../types'
-import type { ScanReceiptResult } from '../hooks/queries/useCloudFunctions'
 import Layout from '../components/Layout'
 import ProcessingOverlay from '../components/ProcessingOverlay'
 import ItemRow from '../components/ItemRow'
@@ -107,16 +106,7 @@ export default function ResubmitPage() {
     if (items.length < 10) setItems([...items, emptyItem()])
   }
 
-  const handleScanComplete = (result: ScanReceiptResult) => {
-    if (result.items.length === 0) return
-    const hasExisting = items.some(item => item.description || item.amount > 0)
-    if (hasExisting && !confirm(t('ocr.replaceItems'))) return
-    setItems(result.items.map(item => ({
-      description: item.description,
-      budgetCode: item.suggestedBudgetCode,
-      amount: item.amount,
-    })))
-  }
+
 
   const validate = (): string[] => {
     const errs: string[] = []
@@ -286,7 +276,7 @@ export default function ResubmitPage() {
         <FileUpload
           files={files}
           onFilesChange={setFiles}
-          onScanComplete={handleScanComplete}
+
           existingCount={original.receipts.length}
           existingLabel={`${t('field.receipts')} ${original.receipts.length} - existing kept. Upload new to replace.`}
         />

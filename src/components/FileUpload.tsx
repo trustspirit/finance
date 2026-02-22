@@ -1,12 +1,10 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { validateFiles, fileToBase64 } from '../lib/utils'
-import { useScanReceipts, type ScanReceiptResult } from '../hooks/queries/useCloudFunctions'
+import { validateFiles } from '../lib/utils'
 
 interface Props {
   files: File[]
   onFilesChange: (files: File[]) => void
-  onScanComplete?: (result: ScanReceiptResult) => void
   label?: string
   required?: boolean
   existingCount?: number
@@ -14,15 +12,11 @@ interface Props {
 }
 
 export default function FileUpload({
-  files, onFilesChange, onScanComplete, label, required = true,
+  files, onFilesChange, label, required = true,
   existingCount, existingLabel,
 }: Props) {
   const { t } = useTranslation()
   const [errors, setErrors] = useState<string[]>([])
-  const [scanning, setScanning] = useState(false)
-  const [scanStatus, setScanStatus] = useState<'idle' | 'success' | 'error'>('idle')
-  const [scanRawText, setScanRawText] = useState('')
-  const scanReceipts = useScanReceipts()
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || [])
@@ -30,35 +24,6 @@ export default function FileUpload({
     setErrors(fileErrs)
     onFilesChange([...files, ...valid])
     e.target.value = ''
-    setScanStatus('idle')
-  }
-
-  const handleScan = async () => {
-    if (files.length === 0) return
-    setScanning(true)
-    setScanStatus('idle')
-    try {
-      const fileData = await Promise.all(
-        files.map(async (f) => ({
-          name: f.name,
-          data: await fileToBase64(f),
-        }))
-      )
-      const result = await scanReceipts.mutateAsync({ files: fileData })
-      setScanRawText(result.rawText)
-      if (result.items.length === 0) {
-        setScanStatus('error')
-      } else {
-        setScanStatus('success')
-        onScanComplete?.(result)
-      }
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err)
-      setScanRawText(msg)
-      setScanStatus('error')
-    } finally {
-      setScanning(false)
-    }
   }
 
   // Generate preview URLs synchronously for render, clean up on files change / unmount
@@ -89,37 +54,7 @@ export default function FileUpload({
         onChange={handleChange}
         className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
       />
-      <div className="flex items-center gap-2 mt-1">
-        <p className="text-xs text-gray-400">{t('form.receiptHint')}</p>
-        {onScanComplete && files.length > 0 && (
-          <button
-            type="button"
-            onClick={handleScan}
-            disabled={scanning}
-            className="text-xs bg-purple-50 text-purple-700 px-3 py-1 rounded hover:bg-purple-100 disabled:bg-gray-100 disabled:text-gray-400 whitespace-nowrap font-medium"
-          >
-            {scanning ? t('ocr.scanning') : t('ocr.scanButton')}
-          </button>
-        )}
-      </div>
-      {scanStatus === 'success' && (
-        <p className="text-xs text-green-600 mt-1">{t('ocr.scanComplete')}</p>
-      )}
-      {scanStatus === 'error' && (
-        <div className="mt-1">
-          <p className="text-xs text-red-600">{t('ocr.scanFailed')}</p>
-          {scanRawText && (
-            <details className="mt-1">
-              <summary className="text-xs text-gray-500 cursor-pointer hover:text-gray-700">
-                {t('ocr.showRawText')}
-              </summary>
-              <pre className="mt-1 p-2 bg-gray-50 border border-gray-200 rounded text-[11px] text-gray-600 whitespace-pre-wrap max-h-40 overflow-y-auto">
-                {scanRawText}
-              </pre>
-            </details>
-          )}
-        </div>
-      )}
+      <p className="text-xs text-gray-400 mt-1">{t('form.receiptHint')}</p>
       {errors.length > 0 && (
         <ul className="mt-2 text-sm text-red-600 space-y-1">
           {errors.map((err, i) => <li key={i}>{err}</li>)}

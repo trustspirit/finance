@@ -7,7 +7,6 @@ import { useProject } from '../contexts/ProjectContext'
 import { useCreateRequest, useMyRequests } from '../hooks/queries/useRequests'
 import { useUploadReceipts } from '../hooks/queries/useCloudFunctions'
 import { RequestItem, Receipt, Committee } from '../types'
-import type { ScanReceiptResult } from '../hooks/queries/useCloudFunctions'
 import Layout from '../components/Layout'
 import ProcessingOverlay from '../components/ProcessingOverlay'
 import ItemRow from '../components/ItemRow'
@@ -156,17 +155,6 @@ export default function RequestFormPage() {
 
   const addItem = () => {
     if (items.length < 10) setItems([...items, emptyItem()])
-  }
-
-  const handleScanComplete = (result: ScanReceiptResult) => {
-    if (result.items.length === 0) return
-    const hasExisting = items.some(item => item.description || item.amount > 0)
-    if (hasExisting && !confirm(t('ocr.replaceItems'))) return
-    setItems(result.items.map(item => ({
-      description: item.description,
-      budgetCode: item.suggestedBudgetCode,
-      amount: item.amount,
-    })))
   }
 
   const validate = (): string[] => {
@@ -367,7 +355,7 @@ export default function RequestFormPage() {
           </div>
         </div>
 
-        <FileUpload files={files} onFilesChange={setFiles} onScanComplete={handleScanComplete} />
+        <FileUpload files={files} onFilesChange={setFiles} />
 
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 mb-1">{t('field.comments')}</label>

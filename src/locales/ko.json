@@ -357,14 +357,6 @@
       "participationFee": "참가비"
     }
   },
-  "ocr": {
-    "scanButton": "영수증 스캔",
-    "scanning": "스캔 중...",
-    "scanComplete": "스캔 완료 — 항목을 확인해주세요",
-    "scanFailed": "항목을 자동으로 인식하지 못했습니다. 직접 입력해주세요.",
-    "showRawText": "인식된 텍스트 보기",
-    "replaceItems": "스캔 결과로 항목을 교체하시겠습니까?"
-  },
   "receipts": {
     "title": "영수증 관리",
     "totalCount": "총 {{count}}건",

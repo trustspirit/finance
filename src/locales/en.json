@@ -357,14 +357,6 @@
       "participationFee": "Participation Fee"
     }
   },
-  "ocr": {
-    "scanButton": "Scan Receipts",
-    "scanning": "Scanning...",
-    "scanComplete": "Scan complete — please review items",
-    "scanFailed": "Could not extract items automatically. Please enter manually.",
-    "showRawText": "Show recognized text",
-    "replaceItems": "Replace items with scan results?"
-  },
   "receipts": {
     "title": "Receipt Management",
     "totalCount": "{{count}} total",
