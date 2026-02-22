@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { validateFiles, fileToBase64 } from '../lib/utils'
 import { useScanReceipts, type ScanReceiptResult } from '../hooks/queries/useCloudFunctions'
@@ -58,22 +58,18 @@ export default function FileUpload({
   }
 
   // Generate preview URLs for image files (with cleanup to prevent memory leaks)
-  const previewsRef = useRef<{ url: string; isImage: boolean }[]>([])
+  const [previews, setPreviews] = useState<{ url: string; isImage: boolean }[]>([])
 
   useEffect(() => {
-    // Revoke old URLs
-    previewsRef.current.forEach(p => URL.revokeObjectURL(p.url))
-    // Create new URLs
-    previewsRef.current = files.map((f) => ({
+    const next = files.map((f) => ({
       url: URL.createObjectURL(f),
       isImage: f.type.startsWith('image/'),
     }))
+    setPreviews(next)
     return () => {
-      previewsRef.current.forEach(p => URL.revokeObjectURL(p.url))
+      next.forEach(p => URL.revokeObjectURL(p.url))
     }
   }, [files])
-
-  const previews = previewsRef.current
 
   return (
     <div className="mb-6">
