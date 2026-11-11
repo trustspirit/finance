@@ -25,6 +25,12 @@ export function formatBankAccount(value: string, bankName: string): string {
   return result
 }
 
+/** 오늘 날짜 (로컬 타임존 기준 YYYY-MM-DD) — toISOString()은 UTC라 KST 오전에 하루 밀림 */
+export function todayLocalDate(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 /** File → base64 data URL 변환 */
 export function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {

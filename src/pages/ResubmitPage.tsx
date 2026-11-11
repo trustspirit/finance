@@ -141,7 +141,10 @@ export default function ResubmitPage() {
   }
 
   const handleSubmit = async () => {
-    if (!user || !appUser || !original || !currentProject) return
+    if (!user || !appUser || !original) return
+    // Resubmit into the original request's project, not whichever project is currently selected
+    const projectId = original.projectId || currentProject?.id
+    if (!projectId) return
     setShowConfirm(false)
     setSubmitting(true)
 
@@ -151,7 +154,7 @@ export default function ResubmitPage() {
         const fileData = await Promise.all(
           files.map(async (f) => ({ name: f.name, data: await fileToBase64(f) }))
         )
-        receipts = await uploadReceiptsMutation.mutateAsync({ files: fileData, committee, projectId: currentProject.id })
+        receipts = await uploadReceiptsMutation.mutateAsync({ files: fileData, committee, projectId })
       } else {
         receipts = original.receipts
       }
@@ -166,7 +169,7 @@ export default function ResubmitPage() {
       }
 
       await createRequest.mutateAsync({
-        projectId: currentProject.id,
+        projectId,
         status: 'pending',
         payee,
         phone,

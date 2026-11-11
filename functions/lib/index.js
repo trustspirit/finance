@@ -56,13 +56,50 @@ function createTransporter() {
 const APP_URL = 'https://finance-96f46.web.app';
 const STORAGE_BUCKET = 'finance-96f46.firebasestorage.app';
 const bucket = admin.storage().bucket(STORAGE_BUCKET);
+const ALLOWED_MIME_TYPES = ['image/png', 'image/jpeg', 'application/pdf'];
+const MIME_BY_EXTENSION = {
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    pdf: 'application/pdf',
+};
+const MAX_FILE_BYTES = 2 * 1024 * 1024; // matches the client-side receipt limit
+const COMMITTEES = ['operations', 'preparation'];
+const SAFE_ID = /^[A-Za-z0-9_-]+$/;
+/** Strip path separators and control chars so a file name can never add path segments */
+function safeFileName(name) {
+    const cleaned = String(name ?? '')
+        .replace(/[\\/]/g, '_')
+        .replace(/\p{Cc}/gu, '_')
+        .replace(/^\.+/, '')
+        .slice(0, 200);
+    return cleaned || 'file';
+}
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
 async function uploadFileToStorage(file, storagePath) {
-    if (!file.data.includes(',')) {
-        throw new Error('File data must be a base64 data URI');
+    const match = typeof file?.data === 'string'
+        ? /^data:([\w.+-]+\/[\w.+-]+)?;base64,(.+)$/s.exec(file.data)
+        : null;
+    if (!match) {
+        throw new https_1.HttpsError('invalid-argument', 'File data must be a base64 data URI');
     }
-    const base64Data = file.data.split(',')[1];
-    const buffer = Buffer.from(base64Data, 'base64');
-    const mimeType = file.data.split(';')[0].split(':')[1];
+    // Some browsers report no/generic MIME type; fall back to the extension like the client does
+    const ext = String(file.name ?? '').split('.').pop()?.toLowerCase() ?? '';
+    const mimeType = ALLOWED_MIME_TYPES.includes(match[1]) ? match[1] : MIME_BY_EXTENSION[ext];
+    if (!mimeType) {
+        throw new https_1.HttpsError('invalid-argument', 'Only PNG, JPG and PDF files are allowed');
+    }
+    const buffer = Buffer.from(match[2], 'base64');
+    if (buffer.length === 0 || buffer.length > MAX_FILE_BYTES) {
+        throw new https_1.HttpsError('invalid-argument', 'File is empty or exceeds 2MB');
+    }
     const fileRef = bucket.file(storagePath);
     await fileRef.save(buffer, {
         metadata: { contentType: mimeType },
@@ -70,7 +107,7 @@ async function uploadFileToStorage(file, storagePath) {
     await fileRef.makePublic();
     const url = `https://storage.googleapis.com/${bucket.name}/${storagePath.split('/').map(encodeURIComponent).join('/')}`;
     return {
-        fileName: file.name,
+        fileName: String(file.name ?? ''),
         storagePath,
         url,
     };
@@ -81,12 +118,18 @@ exports.uploadReceiptsV2 = (0, https_1.onCall)(async (request) => {
         throw new https_1.HttpsError('unauthenticated', 'Must be logged in');
     }
     const { files, committee, projectId } = request.data;
-    if (!files || files.length === 0) {
+    if (!Array.isArray(files) || files.length === 0) {
         throw new https_1.HttpsError('invalid-argument', 'No files provided');
+    }
+    if (!COMMITTEES.includes(committee)) {
+        throw new https_1.HttpsError('invalid-argument', 'Invalid committee');
+    }
+    if (projectId !== undefined && projectId !== null && !SAFE_ID.test(String(projectId))) {
+        throw new https_1.HttpsError('invalid-argument', 'Invalid project id');
     }
     const results = [];
     for (const file of files) {
-        const storagePath = `receipts/${projectId || 'default'}/${committee}/${Date.now()}_${file.name}`;
+        const storagePath = `receipts/${projectId || 'default'}/${committee}/${Date.now()}_${safeFileName(file?.name)}`;
         results.push(await uploadFileToStorage(file, storagePath));
     }
     return results;
@@ -100,11 +143,13 @@ exports.uploadBankBookV2 = (0, https_1.onCall)(async (request) => {
     if (!file) {
         throw new https_1.HttpsError('invalid-argument', 'No file provided');
     }
-    // Delete old bank book file if exists
+    // Delete old bank book file if exists.
+    // bankBookPath is client-writable, so only ever delete inside the caller's own folder.
+    const ownPrefix = `bankbook/${request.auth.uid}/`;
     const userDoc = await admin.firestore().doc(`users/${request.auth.uid}`).get();
     if (userDoc.exists) {
         const oldPath = userDoc.data()?.bankBookPath;
-        if (oldPath) {
+        if (typeof oldPath === 'string' && oldPath.startsWith(ownPrefix) && !oldPath.includes('..')) {
             try {
                 await bucket.file(oldPath).delete();
             }
@@ -113,8 +158,9 @@ exports.uploadBankBookV2 = (0, https_1.onCall)(async (request) => {
             }
         }
     }
-    const storagePath = `bankbook/${request.auth.uid}/${Date.now()}_${file.name}`;
-    return await uploadFileToStorage(file, storagePath);
+    const storagePath = `${ownPrefix}${Date.now()}_${safeFileName(file.name)}`;
+    const result = await uploadFileToStorage(file, storagePath);
+    return result;
 });
 // 파일 다운로드 프록시 (CORS 우회)
 exports.downloadFileV2 = (0, https_1.onCall)(async (request) => {
@@ -122,8 +168,23 @@ exports.downloadFileV2 = (0, https_1.onCall)(async (request) => {
         throw new https_1.HttpsError('unauthenticated', 'Must be logged in');
     }
     const { storagePath } = request.data;
-    if (!storagePath) {
+    if (typeof storagePath !== 'string' || !storagePath || storagePath.includes('..')) {
         throw new https_1.HttpsError('invalid-argument', 'No storage path provided');
+    }
+    // Only app-managed folders are downloadable. Receipts: any signed-in user (same as storage.rules).
+    // Bank books: the owner, or staff roles who process requests.
+    if (storagePath.startsWith('bankbook/')) {
+        const ownerUid = storagePath.split('/')[1];
+        if (ownerUid !== request.auth.uid) {
+            const callerDoc = await admin.firestore().doc(`users/${request.auth.uid}`).get();
+            const callerRole = callerDoc.exists ? callerDoc.data()?.role : null;
+            if (!callerRole || callerRole === 'user') {
+                throw new https_1.HttpsError('permission-denied', 'Not allowed to download this file');
+            }
+        }
+    }
+    else if (!storagePath.startsWith('receipts/')) {
+        throw new https_1.HttpsError('permission-denied', 'Not allowed to download this file');
     }
     const fileRef = bucket.file(storagePath);
     const [exists] = await fileRef.exists();
@@ -286,8 +347,8 @@ exports.onRequestCreated = (0, firestore_1.onDocumentCreated)({
             <div style="font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
               <h2 style="color: #2563eb; margin-bottom: 16px;">새 신청서가 접수되었습니다</h2>
               <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-                <tr><td style="padding: 8px 0; color: #6b7280;">위원회</td><td style="padding: 8px 0;">${committeeLabel}</td></tr>
-                <tr><td style="padding: 8px 0; color: #6b7280;">신청자</td><td style="padding: 8px 0;">${payee} (${requestedBy.name})</td></tr>
+                <tr><td style="padding: 8px 0; color: #6b7280;">위원회</td><td style="padding: 8px 0;">${escapeHtml(committeeLabel)}</td></tr>
+                <tr><td style="padding: 8px 0; color: #6b7280;">신청자</td><td style="padding: 8px 0;">${escapeHtml(payee)} (${escapeHtml(requestedBy.name)})</td></tr>
                 <tr><td style="padding: 8px 0; color: #6b7280;">신청 금액</td><td style="padding: 8px 0; font-weight: 600;">${formatCurrency(totalAmount)}</td></tr>
               </table>
               <p style="margin-top: 20px;"><a href="${APP_URL}/admin/requests" style="display: inline-block; padding: 10px 20px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-size: 14px;">신청서 검토하기</a></p>
@@ -314,10 +375,10 @@ function buildStatusChangeEmail(data, newStatus, requestId) {
           <h2 style="color: #16a34a; margin-bottom: 16px;">신청서가 승인되었습니다</h2>
           <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
             <tr><td style="padding: 8px 0; color: #6b7280;">신청 금액</td><td style="padding: 8px 0; font-weight: 600;">${formatCurrency(totalAmount)}</td></tr>
-            <tr><td style="padding: 8px 0; color: #6b7280;">승인자</td><td style="padding: 8px 0;">${approvedBy?.name || '-'}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280;">승인자</td><td style="padding: 8px 0;">${escapeHtml(approvedBy?.name || '-')}</td></tr>
             <tr><td style="padding: 8px 0; color: #6b7280;">승인 일시</td><td style="padding: 8px 0;">${formatDate(approvedAt)}</td></tr>
           </table>
-          <p style="margin-top: 20px;"><a href="${APP_URL}/request/${requestId || ''}" style="display: inline-block; padding: 10px 20px; background-color: #16a34a; color: white; text-decoration: none; border-radius: 6px; font-size: 14px;">상세 내역 확인하기</a></p>
+          <p style="margin-top: 20px;"><a href="${APP_URL}/request/${encodeURIComponent(requestId || '')}" style="display: inline-block; padding: 10px 20px; background-color: #16a34a; color: white; text-decoration: none; border-radius: 6px; font-size: 14px;">상세 내역 확인하기</a></p>
         </div>
       `,
         };
@@ -330,9 +391,9 @@ function buildStatusChangeEmail(data, newStatus, requestId) {
           <h2 style="color: #dc2626; margin-bottom: 16px;">신청서가 반려되었습니다</h2>
           <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
             <tr><td style="padding: 8px 0; color: #6b7280;">신청 금액</td><td style="padding: 8px 0; font-weight: 600;">${formatCurrency(totalAmount)}</td></tr>
-            <tr><td style="padding: 8px 0; color: #6b7280;">반려 사유</td><td style="padding: 8px 0; color: #dc2626;">${rejectionReason || '-'}</td></tr>
+            <tr><td style="padding: 8px 0; color: #6b7280;">반려 사유</td><td style="padding: 8px 0; color: #dc2626;">${escapeHtml(rejectionReason || '-')}</td></tr>
           </table>
-          <p style="margin-top: 20px;"><a href="${APP_URL}/request/${requestId || ''}" style="display: inline-block; padding: 10px 20px; background-color: #dc2626; color: white; text-decoration: none; border-radius: 6px; font-size: 14px;">상세 내역 확인하기</a></p>
+          <p style="margin-top: 20px;"><a href="${APP_URL}/request/${encodeURIComponent(requestId || '')}" style="display: inline-block; padding: 10px 20px; background-color: #dc2626; color: white; text-decoration: none; border-radius: 6px; font-size: 14px;">상세 내역 확인하기</a></p>
         </div>
       `,
         };
@@ -345,9 +406,9 @@ function buildStatusChangeEmail(data, newStatus, requestId) {
         <h2 style="color: #ea580c; margin-bottom: 16px;">승인된 신청서가 반려되었습니다</h2>
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
           <tr><td style="padding: 8px 0; color: #6b7280;">신청 금액</td><td style="padding: 8px 0; font-weight: 600;">${formatCurrency(totalAmount)}</td></tr>
-          <tr><td style="padding: 8px 0; color: #6b7280;">반려 사유</td><td style="padding: 8px 0; color: #ea580c;">${rejectionReason || '-'}</td></tr>
+          <tr><td style="padding: 8px 0; color: #6b7280;">반려 사유</td><td style="padding: 8px 0; color: #ea580c;">${escapeHtml(rejectionReason || '-')}</td></tr>
         </table>
-        <p style="margin-top: 20px;"><a href="${APP_URL}/request/${requestId || ''}" style="display: inline-block; padding: 10px 20px; background-color: #ea580c; color: white; text-decoration: none; border-radius: 6px; font-size: 14px;">상세 내역 확인하기</a></p>
+        <p style="margin-top: 20px;"><a href="${APP_URL}/request/${encodeURIComponent(requestId || '')}" style="display: inline-block; padding: 10px 20px; background-color: #ea580c; color: white; text-decoration: none; border-radius: 6px; font-size: 14px;">상세 내역 확인하기</a></p>
       </div>
     `,
     };
@@ -404,11 +465,11 @@ exports.onRequestStatusChange = (0, firestore_1.onDocumentUpdated)({
               <div style="font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
                 <h2 style="color: #16a34a; margin-bottom: 16px;">검토 완료 — 승인이 필요합니다</h2>
                 <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-                  <tr><td style="padding: 8px 0; color: #6b7280;">위원회</td><td style="padding: 8px 0;">${committeeLabel}</td></tr>
-                  <tr><td style="padding: 8px 0; color: #6b7280;">신청자</td><td style="padding: 8px 0;">${payee}</td></tr>
+                  <tr><td style="padding: 8px 0; color: #6b7280;">위원회</td><td style="padding: 8px 0;">${escapeHtml(committeeLabel)}</td></tr>
+                  <tr><td style="padding: 8px 0; color: #6b7280;">신청자</td><td style="padding: 8px 0;">${escapeHtml(payee)}</td></tr>
                   <tr><td style="padding: 8px 0; color: #6b7280;">신청 금액</td><td style="padding: 8px 0; font-weight: 600;">${formatCurrency(totalAmount)}</td></tr>
                 </table>
-                <p style="margin-top: 20px;"><a href="${APP_URL}/request/${reqId}" style="display: inline-block; padding: 10px 20px; background-color: #16a34a; color: white; text-decoration: none; border-radius: 6px; font-size: 14px;">신청서 승인하기</a></p>
+                <p style="margin-top: 20px;"><a href="${APP_URL}/request/${encodeURIComponent(reqId)}" style="display: inline-block; padding: 10px 20px; background-color: #16a34a; color: white; text-decoration: none; border-radius: 6px; font-size: 14px;">신청서 승인하기</a></p>
               </div>
             `,
                 });
@@ -457,7 +518,7 @@ function buildWeeklyDigestEmail(userName, sections) {
         html: `
       <div style="font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; max-width: 560px; margin: 0 auto; padding: 24px;">
         <h2 style="color: #2563eb; margin-bottom: 16px;">주간 처리 현황</h2>
-        <p style="margin-bottom: 16px;">${userName}님, 처리가 필요한 건이 있습니다.</p>
+        <p style="margin-bottom: 16px;">${escapeHtml(userName)}님, 처리가 필요한 건이 있습니다.</p>
         <ul style="margin-bottom: 20px; padding-left: 20px;">${sectionHtml}</ul>
         <p style="margin-top: 20px;"><a href="${APP_URL}/admin/requests" style="display: inline-block; padding: 10px 20px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; font-size: 14px;">확인하기</a></p>
       </div>

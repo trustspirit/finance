@@ -11,9 +11,23 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if request.auth != null;
-      allow create: if request.auth.uid == userId;
-      allow update: if request.auth.uid == userId
-        || isAdmin();
+      // Self-signup is always a plain user; role is never self-assignable.
+      allow create: if request.auth.uid == userId
+        && request.resource.data.role == 'user';
+      allow update: if request.auth != null
+        && (
+          // Role unchanged: owner edits own profile, admin edits anyone (e.g. projectIds)
+          (
+            !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role'])
+            && (request.auth.uid == userId || isAdmin())
+          )
+          // Role change: admin only, super_admin can be neither granted nor revoked here
+          || (
+            isAdmin()
+            && request.resource.data.role != 'super_admin'
+            && resource.data.role != 'super_admin'
+          )
+        );
       allow delete: if isAdmin();
     }
     match /requests/{requestId} {
@@ -31,7 +45,19 @@ service cloud.firestore {
             resource.data.status == 'pending'
             && request.resource.data.status in ['reviewed', 'rejected']
             && request.auth.uid != resource.data.requestedBy.uid
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'reviewedBy', 'reviewedAt', 'rejectionReason'])
+            && (
+              // reviewed: records the reviewer
+              (
+                request.resource.data.status == 'reviewed'
+                && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'reviewedBy', 'reviewedAt'])
+              )
+              // rejected: the rejecter is stored in approvedBy/approvedAt (same shape as approver rejection)
+              || (
+                request.resource.data.status == 'rejected'
+                && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'approvedBy', 'approvedAt', 'rejectionReason'])
+                && request.resource.data.approvedBy.uid == request.auth.uid
+              )
+            )
             && (
               (userRole() == 'finance_ops' && resource.data.committee == 'operations')
               || userRole() in ['finance_prep', 'admin', 'super_admin']

@@ -15,7 +15,7 @@ import FileUpload from '../components/FileUpload'
 import CommitteeSelect from '../components/CommitteeSelect'
 import ConfirmModal from '../components/ConfirmModal'
 import { useTranslation } from 'react-i18next'
-import { formatPhone, formatBankAccount, fileToBase64 } from '../lib/utils'
+import { formatPhone, formatBankAccount, fileToBase64, todayLocalDate } from '../lib/utils'
 import BankSelect from '../components/BankSelect'
 import ReviewChecklist from '../components/ReviewChecklist'
 import { SUBMISSION_CHECKLIST } from '../constants/reviewChecklist'
@@ -70,7 +70,7 @@ export default function RequestFormPage() {
   const [phone, setPhone] = useState(draft?.phone || appUser?.phone || '')
   const [bankName, setBankName] = useState(draft?.bankName || appUser?.bankName || '')
   const [bankAccount, setBankAccount] = useState(draft?.bankAccount || appUser?.bankAccount || '')
-  const [date, setDate] = useState(draft?.date || new Date().toISOString().slice(0, 10))
+  const [date, setDate] = useState(draft?.date || todayLocalDate())
   const [session] = useState('한국')
   const [committee, setCommittee] = useState<Committee>(draft?.committee || appUser?.defaultCommittee || 'operations')
   const [items, setItems] = useState<RequestItem[]>(draft?.items?.length ? draft.items : [emptyItem()])
@@ -110,12 +110,12 @@ export default function RequestFormPage() {
     return () => clearTimeout(timer)
   }, [payee, phone, bankName, bankAccount, date, committee, items, comments, hasContent, submitted])
 
-  // Block navigation when form has content (except to /settings)
+  // Block navigation when form has content (except to the settings pages — draft is kept)
   const blocker = useBlocker(({ nextLocation }) => {
     if (submitted) return false // Allow after successful submission
     if (submitting) return false // Allow during submission (navigate after submit)
     if (showConfirm) return true // Block while confirm modal is open
-    if (nextLocation.pathname === '/settings') return false
+    if (nextLocation.pathname === '/profile' || nextLocation.pathname === '/settings') return false
     return hasContent()
   })
 
@@ -136,7 +136,7 @@ export default function RequestFormPage() {
     setPhone(appUser?.phone || '')
     setBankName(appUser?.bankName || '')
     setBankAccount(appUser?.bankAccount || '')
-    setDate(new Date().toISOString().slice(0, 10))
+    setDate(todayLocalDate())
     setCommittee(appUser?.defaultCommittee || 'operations')
     setItems([emptyItem()])
     setComments('')
@@ -188,7 +188,7 @@ export default function RequestFormPage() {
     // Check for duplicate amount in active requests
     const currentTotal = validItems.reduce((sum, item) => sum + item.amount, 0)
     const duplicate = myRequests.find(
-      (r) => r.totalAmount === currentTotal && (r.status === 'pending' || r.status === 'approved')
+      (r) => r.totalAmount === currentTotal && (r.status === 'pending' || r.status === 'reviewed' || r.status === 'approved')
     )
     if (duplicate) {
       if (!confirm(t('validation.duplicateAmount', { amount: currentTotal.toLocaleString(), date: duplicate.date }))) {

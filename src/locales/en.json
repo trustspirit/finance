@@ -186,7 +186,8 @@
     "cancelRequest": "Cancel Request",
     "cancelConfirm": "Are you sure you want to cancel this request?",
     "remainingCount": "{{count}} remaining",
-    "viewOriginal": "View Original"
+    "viewOriginal": "View Original",
+    "actionFailed": "Action failed. Please refresh and try again."
   },
   "settlement": {
     "title": "Settlement",

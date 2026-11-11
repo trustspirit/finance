@@ -124,6 +124,11 @@ export default function RequestDetailPage() {
   const showChecklist = canDoReview || canDoApprove
   const checklistItems = canDoReview ? REVIEW_CHECKLIST : APPROVAL_CHECKLIST
 
+  const handleActionError = (error: unknown) => {
+    console.error('Request action failed:', error)
+    alert(t('approval.actionFailed'))
+  }
+
   const handleReview = () => {
     if (!user || !appUser || !request) return
     if (isSelf) { alert(t('approval.selfReviewError')); return }
@@ -136,7 +141,7 @@ export default function RequestDetailPage() {
     const name = appUser.displayName || appUser.name
     reviewMutation.mutate(
       { requestId: request.id, projectId: currentProject!.id, reviewer: { uid: user.uid, name, email: appUser.email } },
-      { onSuccess: navigateToNext },
+      { onSuccess: navigateToNext, onError: handleActionError },
     )
   }
 
@@ -156,7 +161,7 @@ export default function RequestDetailPage() {
     const name = appUser.displayName || appUser.name
     approveMutation.mutate(
       { requestId: request.id, projectId: currentProject!.id, approver: { uid: user.uid, name, email: appUser.email }, signature },
-      { onSuccess: () => { setShowApprovalModal(false); navigateToNext() } },
+      { onSuccess: () => { setShowApprovalModal(false); navigateToNext() }, onError: handleActionError },
     )
   }
 
@@ -171,7 +176,7 @@ export default function RequestDetailPage() {
     const name = appUser.displayName || appUser.name
     rejectMutation.mutate(
       { requestId: request.id, projectId: currentProject!.id, approver: { uid: user.uid, name, email: appUser.email }, rejectionReason: reason },
-      { onSuccess: () => { setShowRejectionModal(false); navigateToNext() } },
+      { onSuccess: () => { setShowRejectionModal(false); navigateToNext() }, onError: handleActionError },
     )
   }
 
